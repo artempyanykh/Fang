@@ -221,7 +221,7 @@ module EvalLazy =
         | Ok expr ->
             let finish = System.DateTime.Now
             let duration = finish - start
-            printfn $">> {expr} [{duration.Milliseconds}ms]"
+            printfn $">> {expr} [{duration.TotalMilliseconds}ms]"
         | Error msg -> printfn $"!! {msg}"
 
     let runExamples () =
@@ -400,7 +400,7 @@ module EvalEager =
         | Ok expr ->
             let finish = System.DateTime.Now
             let duration = finish - start
-            printfn $">> {expr} [{duration.Milliseconds}ms]"
+            printfn $">> {expr} [{duration.TotalMilliseconds}ms]"
         | Error msg -> printfn $"!! {msg}"
 
     let runExamples () =
