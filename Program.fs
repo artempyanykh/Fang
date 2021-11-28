@@ -7,12 +7,13 @@
 
 [<EntryPoint>]
 let main args =
-    printfn "Lazy ->"
-    Minimal.EvalLazy.runExamples ()
-    Minimal.EvalLazy.runExamples ()
-    
-    printfn "Eager ->"
-    Minimal.EvalEager.runExamples ()
-    Minimal.EvalEager.runExamples ()
+//    printfn "Lazy ->"
+//    Minimal.EvalLazy.runExamples ()
+//    Minimal.EvalLazy.runExamples ()
+//    
+//    printfn "Eager ->"
+//    Minimal.EvalEager.runExamples ()
+//    Minimal.EvalEager.runExamples ()
+    Interp.Ex.runExamples ()
     
     0

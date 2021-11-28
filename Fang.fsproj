@@ -10,6 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Lang.fs" />
+    <Compile Include="Interp.fs" />
     <Compile Include="Minimal.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
