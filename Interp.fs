@@ -5,7 +5,13 @@ open Fang.Lang
 type Env = Env of List<VarName * Closure>
 and Closure = { env: Env; expr: Expr }
 
+and Value =
+    | Atomic of Expr
+    | Composite of Closure
+
 let emptyEnv = Env List.empty
+
+let isEmptyEnv (Env e) = List.isEmpty e
 
 let lookupVar var (Env l) =
     List.tryFind (fun (n, _) -> n = var) l
@@ -21,6 +27,7 @@ let dropFromEnv var (Env l) =
 type EvalError =
     | UnboundName of VarName
     | WrongType of Expr * expectedType: string
+    | WrongValue of Value * expectedKind: string
     | Todo of Expr
 
 exception EvalException of EvalError
@@ -48,22 +55,40 @@ let exprAsLambda expr =
     | Lam (var, body) -> (var, body)
     | expr -> raise (EvalException(WrongType(expr, "lambda")))
 
-let rec eval (env: Env) (expr: Expr) : Expr =
+
+let valueAsAtomic =
+    function
+    | Atomic expr -> expr
+    | Composite _ as value -> raise (EvalException(WrongValue(value, "atomic")))
+
+let rec eval (env: Env) (expr: Expr) : Value =
     match expr with
-    | Literal _ -> expr
+    | Literal _ -> Atomic expr
     | Var var ->
         lookupVar var env
         |> Option.map (fun x -> eval x.env x.expr)
         |> Option.defaultWith (fun () -> raise (EvalException(UnboundName var)))
-    | Lam _ -> expr
+    | Lam _ ->
+        if isEmptyEnv env then
+            Atomic expr
+        else
+            Composite { env = env; expr = expr }
     | Builtin (Arithmetic (fn, a, b)) ->
-        let a = eval env a |> exprAsInt
-        let b = eval env b |> exprAsInt
-        evalArithmetic fn a b |> BType.Int |> Literal
+        let a = eval env a |> valueAsAtomic |> exprAsInt
+        let b = eval env b |> valueAsAtomic |> exprAsInt
+
+        evalArithmetic fn a b
+        |> BType.Int
+        |> Literal
+        |> Atomic
     | Builtin (Comparison (fn, l, r)) ->
-        let a = eval env l |> exprAsInt
-        let b = eval env r |> exprAsInt
-        evalComparison fn a b |> BType.Int |> Literal
+        let a = eval env l |> valueAsAtomic |> exprAsInt
+        let b = eval env r |> valueAsAtomic |> exprAsInt
+
+        evalComparison fn a b
+        |> BType.Int
+        |> Literal
+        |> Atomic
     | Bind (recursive, var, body, expr) ->
         let bodyEnv =
             if recursive then
@@ -74,19 +99,30 @@ let rec eval (env: Env) (expr: Expr) : Expr =
         let body = eval bodyEnv body
 
         let exprEnv =
-            addToEnv var { env = env; expr = body } env
+            match body with
+            | Composite closure -> addToEnv var closure env
+            | Atomic expr  -> addToEnv var { env = env; expr = expr } env
 
         eval exprEnv expr
     | App (expr, arg) ->
-        let arg = eval env arg
-        let var, body = eval env expr |> exprAsLambda
+        let arg =
+            match eval env arg with
+            | Atomic atomicExpr -> {env = env; expr = atomicExpr}
+            | Composite {env = closedEnv; expr = closedExpr} -> {env = stackEnv closedEnv env; expr = closedExpr}
+            
+        let closedEnv, closedExpr =
+            match eval env expr with
+            | Atomic atomicExpr -> emptyEnv, atomicExpr
+            | Composite {env = env; expr = expr} -> env, expr
+            
+        let var, body = closedExpr |> exprAsLambda
 
         let newEnv =
-            addToEnv var { env = env; expr = arg } env
+            addToEnv var arg (stackEnv closedEnv env)
 
         eval newEnv body
     | Cond (pred, t, f) ->
-        let pred = eval env pred |> exprAsInt
+        let pred = eval env pred |> valueAsAtomic |> exprAsInt
 
         if pred <> 0 then
             eval env t
@@ -159,7 +195,7 @@ module Ex =
         | EvalException err -> printfn $"!! {err}"
 
     let runExamples () =
-//        evalPrint (ex1 42)
-//        evalPrint (ex2 15)
+        evalPrint (ex1 42)
+        evalPrint (ex2 15)
         evalPrint (ex3 10)
-//        evalPrint (ex4 26)
+        evalPrint (ex4 10)
