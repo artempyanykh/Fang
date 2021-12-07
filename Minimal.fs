@@ -407,4 +407,6 @@ module EvalEager =
         evalPrint ex1
         evalPrint ex2
         evalPrint ex3
+        evalPrint (ex4 10)
+        evalPrint (ex4 12)
         evalPrint (ex4 26)

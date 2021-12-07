@@ -30,7 +30,7 @@ and Expr =
     | Lam of var: VarName * body: Expr
     | App of expr: Expr * arg: Expr
     | Cond of pred: Expr * trueBranch: Expr * falseBranch: Expr
-    | Bind of recursive: bool * var: VarName * body : Expr * expr : Expr
+    | Bind of recursive: bool * var: VarName * body: Expr * expr: Expr
     | Builtin of BuiltinFn
 
 

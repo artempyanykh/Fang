@@ -2,27 +2,33 @@ module Fang.Interp
 
 open Fang.Lang
 
-type Env = Env of List<VarName * Closure>
+type Env = Env of Map<VarName, Closure>
 and Closure = { env: Env; expr: Expr }
 
 and Value =
     | Atomic of Expr
     | Composite of Closure
 
-let emptyEnv = Env List.empty
+let emptyEnv = Env Map.empty
 
-let isEmptyEnv (Env e) = List.isEmpty e
+let isEmptyEnv (Env e) = Map.isEmpty e
 
-let lookupVar var (Env l) =
-    List.tryFind (fun (n, _) -> n = var) l
-    |> Option.map snd
+let lookupVar (var: VarName) (Env e) = Map.tryFind var e
 
-let addToEnv var closure (Env env) = Env((var, closure) :: env)
+let addToEnv var closure (Env env) = Env(Map.add var closure env)
 
-let stackEnv (Env high) (Env low) = Env(List.append high low)
+let combineEnvs (Env high) (Env low) =
+    if Map.isEmpty high then
+        (Env low)
+    else if Map.isEmpty low then
+        (Env high)
+    else
+        let mutable newMap = low
 
-let dropFromEnv var (Env l) =
-    Env(List.filter (fun (v, c) -> v <> var) l)
+        for entry in high do
+            newMap <- Map.add entry.Key entry.Value newMap
+
+        Env newMap
 
 type EvalError =
     | UnboundName of VarName
@@ -96,33 +102,34 @@ let rec eval (env: Env) (expr: Expr) : Value =
             else
                 env
 
-        let body = eval bodyEnv body
+        let evalBody = eval bodyEnv body
 
         let exprEnv =
-            match body with
+            match evalBody with
             | Composite closure -> addToEnv var closure env
-            | Atomic expr  -> addToEnv var { env = env; expr = expr } env
+            | Atomic expr -> addToEnv var { env = emptyEnv; expr = expr } env
 
         eval exprEnv expr
     | App (expr, arg) ->
         let arg =
             match eval env arg with
-            | Atomic atomicExpr -> {env = env; expr = atomicExpr}
-            | Composite {env = closedEnv; expr = closedExpr} -> {env = stackEnv closedEnv env; expr = closedExpr}
-            
+            | Atomic atomicExpr -> { env = emptyEnv; expr = atomicExpr }
+            | Composite closure -> closure
+
         let closedEnv, closedExpr =
             match eval env expr with
             | Atomic atomicExpr -> emptyEnv, atomicExpr
-            | Composite {env = env; expr = expr} -> env, expr
-            
+            | Composite { env = env; expr = expr } -> env, expr
+
         let var, body = closedExpr |> exprAsLambda
 
         let newEnv =
-            addToEnv var arg (stackEnv closedEnv env)
+            addToEnv var arg (combineEnvs closedEnv env)
 
         eval newEnv body
     | Cond (pred, t, f) ->
-        let pred = eval env pred |> valueAsAtomic |> exprAsInt
+        let pred =
+            eval env pred |> valueAsAtomic |> exprAsInt
 
         if pred <> 0 then
             eval env t
@@ -173,6 +180,26 @@ module Ex =
 
     let fib = App(fixpoint, fibStep)
 
+    let fibDirect =
+        let fib = VarName "fib"
+        let n = VarName "n"
+        let one = Literal(BType.Int 1)
+        let two = Literal(BType.Int 2)
+        let leqOne = Builtin(Comparison(Less, Var n, two))
+
+        let fn1 =
+            App(Var fib, Builtin(Arithmetic(Sub, Var n, one)))
+
+        let fn2 =
+            App(Var fib, Builtin(Arithmetic(Sub, Var n, two)))
+
+        Bind(
+            recursive = true,
+            var = fib,
+            body = Lam(n, Cond(leqOne, one, Builtin(Arithmetic(Add, fn1, fn2)))),
+            expr = Var fib
+        )
+
     let ex1 n = App(id, Literal(BType.Int n))
 
     let ex2 n =
@@ -182,6 +209,8 @@ module Ex =
     let ex3 n = App(factorial, Literal(BType.Int n))
 
     let ex4 n = App(fib, Literal(BType.Int n))
+
+    let ex5 n = App(fibDirect, Literal(BType.Int n))
 
     let evalPrint expr =
         let start = System.DateTime.Now
@@ -195,7 +224,16 @@ module Ex =
         | EvalException err -> printfn $"!! {err}"
 
     let runExamples () =
+        printfn "Warmup examples"
         evalPrint (ex1 42)
         evalPrint (ex2 15)
         evalPrint (ex3 10)
+        printfn "Fib via Y-combinator"
         evalPrint (ex4 10)
+        evalPrint (ex4 20)
+        evalPrint (ex4 26)
+        printfn "Fib via direct encoding"
+        evalPrint (ex5 10)
+        evalPrint (ex5 20)
+        evalPrint (ex5 26)
+        evalPrint (ex5 30)
