@@ -43,23 +43,3 @@ let tryExtractLambdaFromExpr: Expr -> Option<VarName * Expr> =
     function
     | Lam (var, body) -> Some(var, body)
     | _ -> None
-
-//let rec subst (substVar: VarName) (forExpr: Expr) (inExpr: Expr) : Expr =
-//    let substFn = subst substVar forExpr
-//
-//    match inExpr with
-//    | Var name ->
-//        if name = substVar then
-//            forExpr
-//        else
-//            Var name
-//    | Lam (var, body) ->
-//        if var = substVar then
-//            inExpr
-//        else
-//            Lam(var, substFn body)
-//    | Literal _ -> inExpr
-//    | App (expr, arg) -> App(substFn expr, substFn arg)
-//    | Cond (pred, t, f) -> Cond(substFn pred, substFn t, substFn f)
-//    | Builtin (Arithmetic (fn, opA, opB)) -> Builtin(Arithmetic(fn, substFn opA, substFn opB))
-//    | Builtin (Comparison (fn, lhs, rhs)) -> Builtin(Comparison(fn, substFn lhs, substFn rhs))
