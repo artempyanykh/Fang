@@ -8,7 +8,7 @@
 [<EntryPoint>]
 let main args =
     printfn "Minimal Eager ->"
-    Minimal.EvalEager.runExamples ()
+    MinimalInterpreter.EvalEager.runExamples ()
 
     printfn "With closure and let bindings ->"
     Interp.Ex.runExamples ()

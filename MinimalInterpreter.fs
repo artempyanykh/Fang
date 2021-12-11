@@ -1,4 +1,4 @@
-module Fang.Minimal
+module Fang.MinimalInterpreter
 
 module Lang =
     type VarName = VarName of string
