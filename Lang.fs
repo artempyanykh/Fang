@@ -32,14 +32,3 @@ and Expr =
     | Cond of pred: Expr * trueBranch: Expr * falseBranch: Expr
     | Bind of recursive: bool * var: VarName * body: Expr * expr: Expr
     | Builtin of BuiltinFn
-
-
-let tryExprAsInt: Expr -> Option<int> =
-    function
-    | Literal (BType.Int value) -> Some value
-    | _ -> None
-
-let tryExtractLambdaFromExpr: Expr -> Option<VarName * Expr> =
-    function
-    | Lam (var, body) -> Some(var, body)
-    | _ -> None
