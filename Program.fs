@@ -11,6 +11,6 @@ let main args =
     MinimalInterpreter.EvalEager.runExamples ()
 
     printfn "With closure and let bindings ->"
-    Interp.Ex.runExamples ()
+    Interpreter.Ex.runExamples ()
 
     0

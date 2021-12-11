@@ -1,4 +1,4 @@
-module Fang.Interp
+module Fang.Interpreter
 
 open Fang.Lang
 

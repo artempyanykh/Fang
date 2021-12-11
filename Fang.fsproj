@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <Compile Include="Lang.fs" />
-    <Compile Include="Interp.fs" />
+    <Compile Include="Interpreter.fs" />
     <Compile Include="MinimalInterpreter.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
