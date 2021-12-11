@@ -51,28 +51,28 @@ let evalComparison fn l r =
     | Greater -> if l > r then 1 else 0
     | Equal -> if l = r then 1 else 0
 
-let exprAsInt expr =
+let exprAsIntExn expr =
     match expr with
     | Literal (BType.Int intVal) -> intVal
     | _ -> raise (EvalException(WrongType(expr, "int")))
 
-let exprAsLambda expr =
+let exprAsLambdaExn expr =
     match expr with
     | Lam (var, body) -> (var, body)
     | expr -> raise (EvalException(WrongType(expr, "lambda")))
 
 
-let valueAsAtomic =
+let valueAsAtomicExn =
     function
     | Atomic expr -> expr
     | Composite _ as value -> raise (EvalException(WrongValue(value, "atomic")))
 
-let rec eval (env: Env) (expr: Expr) : Value =
+let rec evalExn (env: Env) (expr: Expr) : Value =
     match expr with
     | Literal _ -> Atomic expr
     | Var var ->
         lookupVar var env
-        |> Option.map (fun x -> eval x.env x.expr)
+        |> Option.map (fun x -> evalExn x.env x.expr)
         |> Option.defaultWith (fun () -> raise (EvalException(UnboundName var)))
     | Lam _ ->
         if isEmptyEnv env then
@@ -80,16 +80,16 @@ let rec eval (env: Env) (expr: Expr) : Value =
         else
             Composite { env = env; expr = expr }
     | Builtin (Arithmetic (fn, a, b)) ->
-        let a = eval env a |> valueAsAtomic |> exprAsInt
-        let b = eval env b |> valueAsAtomic |> exprAsInt
+        let a = evalExn env a |> valueAsAtomicExn |> exprAsIntExn
+        let b = evalExn env b |> valueAsAtomicExn |> exprAsIntExn
 
         evalArithmetic fn a b
         |> BType.Int
         |> Literal
         |> Atomic
     | Builtin (Comparison (fn, l, r)) ->
-        let a = eval env l |> valueAsAtomic |> exprAsInt
-        let b = eval env r |> valueAsAtomic |> exprAsInt
+        let a = evalExn env l |> valueAsAtomicExn |> exprAsIntExn
+        let b = evalExn env r |> valueAsAtomicExn |> exprAsIntExn
 
         evalComparison fn a b
         |> BType.Int
@@ -102,39 +102,39 @@ let rec eval (env: Env) (expr: Expr) : Value =
             else
                 env
 
-        let evalBody = eval bodyEnv body
+        let evalBody = evalExn bodyEnv body
 
         let exprEnv =
             match evalBody with
             | Composite closure -> addToEnv var closure env
             | Atomic expr -> addToEnv var { env = emptyEnv; expr = expr } env
 
-        eval exprEnv expr
+        evalExn exprEnv expr
     | App (expr, arg) ->
         let arg =
-            match eval env arg with
+            match evalExn env arg with
             | Atomic atomicExpr -> { env = emptyEnv; expr = atomicExpr }
             | Composite closure -> closure
 
         let closedEnv, closedExpr =
-            match eval env expr with
+            match evalExn env expr with
             | Atomic atomicExpr -> emptyEnv, atomicExpr
             | Composite { env = env; expr = expr } -> env, expr
 
-        let var, body = closedExpr |> exprAsLambda
+        let var, body = closedExpr |> exprAsLambdaExn
 
         let newEnv =
             addToEnv var arg (combineEnvs closedEnv env)
 
-        eval newEnv body
+        evalExn newEnv body
     | Cond (pred, t, f) ->
         let pred =
-            eval env pred |> valueAsAtomic |> exprAsInt
+            evalExn env pred |> valueAsAtomicExn |> exprAsIntExn
 
         if pred <> 0 then
-            eval env t
+            evalExn env t
         else
-            eval env f
+            evalExn env f
 
 module Ex =
     let id =
@@ -216,7 +216,7 @@ module Ex =
         let start = System.DateTime.Now
 
         try
-            let expr = eval emptyEnv expr
+            let expr = evalExn emptyEnv expr
             let finish = System.DateTime.Now
             let duration = finish - start
             printfn $">> {expr} [{duration.TotalMilliseconds}ms]"
