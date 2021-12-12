@@ -25,7 +25,7 @@ type BuiltinFn =
 and Context = Map<VarName, Expr>
 
 and Expr =
-    | Literal of BType
+    | Lit of BType
     | Var of VarName
     | Lam of var: VarName * body: Expr
     | App of expr: Expr * arg: Expr

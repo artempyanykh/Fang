@@ -53,7 +53,7 @@ let evalComparison fn l r =
 
 let exprAsIntExn expr =
     match expr with
-    | Literal (BType.Int intVal) -> intVal
+    | Lit (BType.Int intVal) -> intVal
     | _ -> raise (EvalException(WrongType(expr, "int")))
 
 let exprAsLambdaExn expr =
@@ -69,7 +69,7 @@ let valueAsAtomicExn =
 
 let rec evalExn (env: Env) (expr: Expr) : Value =
     match expr with
-    | Literal _ -> Atomic expr
+    | Lit _ -> Atomic expr
     | Var var ->
         lookupVar var env
         |> Option.map (fun x -> evalExn x.env x.expr)
@@ -85,7 +85,7 @@ let rec evalExn (env: Env) (expr: Expr) : Value =
 
         evalArithmetic fn a b
         |> BType.Int
-        |> Literal
+        |> Lit
         |> Atomic
     | Builtin (Comparison (fn, l, r)) ->
         let a = evalExn env l |> valueAsAtomicExn |> exprAsIntExn
@@ -93,7 +93,7 @@ let rec evalExn (env: Env) (expr: Expr) : Value =
 
         evalComparison fn a b
         |> BType.Int
-        |> Literal
+        |> Lit
         |> Atomic
     | Bind (recursive, var, body, expr) ->
         let bodyEnv =
@@ -155,7 +155,7 @@ module Ex =
         let f = VarName "f"
         let n = VarName "n"
         let isZero expr t f = Cond(expr, f, t)
-        let one = Literal(BType.Int 1)
+        let one = Lit(BType.Int 1)
         let pred n = Builtin(Arithmetic(Sub, n, one))
         let mul a b = Builtin(Arithmetic(Mul, a, b))
 
@@ -166,8 +166,8 @@ module Ex =
     let fibStep =
         let f = VarName "f"
         let n = VarName "n"
-        let one = Literal(BType.Int 1)
-        let two = Literal(BType.Int 2)
+        let one = Lit(BType.Int 1)
+        let two = Lit(BType.Int 2)
         let leqOne = Builtin(Comparison(Less, Var n, two))
 
         let fn1 =
@@ -180,11 +180,11 @@ module Ex =
 
     let fib = App(fixpoint, fibStep)
 
-    let fibDirect =
+    let withFibDirect cont =
         let fib = VarName "fib"
         let n = VarName "n"
-        let one = Literal(BType.Int 1)
-        let two = Literal(BType.Int 2)
+        let one = Lit(BType.Int 1)
+        let two = Lit(BType.Int 2)
         let leqOne = Builtin(Comparison(Less, Var n, two))
 
         let fn1 =
@@ -197,20 +197,20 @@ module Ex =
             recursive = true,
             var = fib,
             body = Lam(n, Cond(leqOne, one, Builtin(Arithmetic(Add, fn1, fn2)))),
-            expr = Var fib
+            expr = cont
         )
 
-    let ex1 n = App(id, Literal(BType.Int n))
+    let ex1 n = App(id, Lit(BType.Int n))
 
     let ex2 n =
         let x = VarName "x"
-        App(App(id, Lam(x, Builtin(Arithmetic(Mul, Var x, Literal(BType.Int 2))))), Literal(BType.Int n))
+        App(App(id, Lam(x, Builtin(Arithmetic(Mul, Var x, Lit(BType.Int 2))))), Lit(BType.Int n))
 
-    let ex3 n = App(factorial, Literal(BType.Int n))
+    let ex3 n = App(factorial, Lit(BType.Int n))
 
-    let ex4 n = App(fib, Literal(BType.Int n))
+    let ex4 n = App(fib, Lit(BType.Int n))
 
-    let ex5 n = App(fibDirect, Literal(BType.Int n))
+    let ex5 n = withFibDirect (App(expr=Var (VarName "fib"), arg=Lit(BType.Int n)))
 
     let evalPrint expr =
         let start = System.DateTime.Now

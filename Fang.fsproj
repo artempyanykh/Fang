@@ -13,6 +13,7 @@
     <Compile Include="MinimalInterpreter.fs" />
     <Compile Include="Lang.fs" />
     <Compile Include="Interpreter.fs" />
+    <Compile Include="Bytecode.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
