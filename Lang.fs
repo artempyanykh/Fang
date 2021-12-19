@@ -5,7 +5,7 @@ type VarName = VarName of string
 [<RequireQualifiedAccess>]
 type BType =
     | Int of int
-    | Unit of unit
+    | Unit
 
 type ArithmeticFn =
     | Add
@@ -21,8 +21,6 @@ type ComparisonFn =
 type BuiltinFn =
     | Arithmetic of fn: ArithmeticFn * opA: Expr * opB: Expr
     | Comparison of fn: ComparisonFn * lhs: Expr * rhs: Expr
-
-and Context = Map<VarName, Expr>
 
 and Expr =
     | Lit of BType
