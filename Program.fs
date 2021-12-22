@@ -18,6 +18,7 @@ let main args =
     Bytecode.Ex.eval Bytecode.Ex.ex2_AST
     Bytecode.Ex.eval Bytecode.Ex.ex3_AST
     Bytecode.Ex.eval Bytecode.Ex.ex4_AST
+    Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 4)
     Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 20)
     Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 26)
     Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 30)

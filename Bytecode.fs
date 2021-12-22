@@ -1,5 +1,6 @@
 module Fang.Bytecode
 
+open System.Collections.Generic
 open Fang.Lang
 
 [<RequireQualifiedAccess>]
@@ -8,12 +9,14 @@ type IntOp =
     | Sub
     | Mul
     | Div
-    
+
 [<RequireQualifiedAccess>]
 type IntCmp =
     | Less
     | Equal
     | Greater
+
+type CodePointer = { labelId: int; offset: int }
 
 type Instr =
     | Halt
@@ -21,85 +24,83 @@ type Instr =
     | IntConst of int
     | IntOp of IntOp
     | IntCmp of IntCmp
-    | Access of nameId:int
-    | Save of nameId:int
-    | Drop of nameId:int
-    | SaveRec of nameId:int
-    | Jump of labelId:int
-    | Branch of trueId:int * falseId:int
-    | MkClosure of nameId:int * labelId:int
+    | Access of nameId: int
+    | Save of nameId: int
+    | Drop of nameId: int
+    | SaveRec of nameId: int
+    | Jump of CodePointer
+    | Branch of trueBranch: CodePointer * falseBranch: CodePointer
+    | MkClosure of nameId: int * labelId: int
     | Apply
+    | Ret
 
 type ConstPool() =
-    let mutable mapping: Map<string, int> = Map.empty
+    let mapping: Dictionary<string, int> = Dictionary()
+    let reverseMapping: ResizeArray<string> = ResizeArray()
 
-    member self.Add(value: string) : int =
-        match Map.tryFind value mapping with
-        | Some num -> num
-        | _ ->
+    member this.Add(value: string) : int =
+        if mapping.ContainsKey(value) then
+            mapping.[value]
+        else
             let nextNum = mapping.Count
-            mapping <- Map.add value nextNum mapping
+            mapping.Add(value, nextNum)
+            reverseMapping.Add(value)
             nextNum
 
-    member self.Find(value: string) = Map.find value mapping
+    member this.FindNum(value: string) = mapping.[value]
 
-    member self.ReverseMapping() : array<string> =
-        let rev = Array.zeroCreate mapping.Count
-
-        for entry in mapping do
-            rev.[entry.Value] <- entry.Key
-
-        rev
+    member this.FindName(num: int) : string = reverseMapping.[num]
 
 type Label = string
 
 type LabelManager() =
-    let mutable mapping: Map<Label, int> =
-        Map.ofList [ LabelManager.EntryLabel, 0 ]
+    let mapping: Dictionary<Label, int> =
+        Dictionary(Map.ofList [ (LabelManager.EntryLabel, 0) ])
 
-    member self.GenLabel() : Label * int =
+    let reverseMapping: ResizeArray<Label> = ResizeArray([ LabelManager.EntryLabel ])
+
+    member private this.AddLabel(name: string) : Label * int =
         let nextId = mapping.Count
-        let label = $"gen_lbl_{nextId}"
-        mapping <- Map.add label nextId mapping
+        let label = $"l{nextId}_{name}"
+        mapping.Add(label, nextId)
+        reverseMapping.Add(label)
         label, nextId
 
-    member self.GenNamedLabel(name: string) : Label * int =
-        let nextId = mapping.Count
-        let label = $"{name}_lbl_{nextId}"
-        mapping <- Map.add label nextId mapping
-        label, nextId
+    member this.GenLabel() : Label * int = this.AddLabel("gen")
 
-    member self.GenScopedLabel(scope: Label, name: string) : Label * int =
-        let nextId = mapping.Count
-        let label = $"{scope}_{name}_lbl_{nextId}"
-        mapping <- Map.add label nextId mapping
-        label, nextId
+    member this.GenNamedLabel(name: string) : Label * int = this.AddLabel(name)
 
-    member self.FindLabelId(label: Label) : int = Map.find label mapping
+    member this.GenScopedLabel(scope: Label, name: string) : Label * int =
+        if scope = LabelManager.EntryLabel then
+            this.AddLabel(name)
+        else
+            this.AddLabel($"{scope}_{name}")
 
-    member self.ReverseMapping() : array<string> =
-        let rev = Array.zeroCreate mapping.Count
+    member this.FindLabelId(label: Label) : int = mapping.[label]
+    member this.FindLabel(id: int) : Label = reverseMapping.[id]
 
-        for entry in mapping do
-            rev.[entry.Value] <- entry.Key
-
-        rev
-        
     static member EntryLabel: Label = "entry"
 
 type Bytecode() =
-    let mutable chunks: Map<Label, List<Instr>> = Map.empty
+    let chunks: ResizeArray<ResizeArray<Instr>> = ResizeArray()
     member val ConstPool: ConstPool = ConstPool()
     member val LabelManager: LabelManager = LabelManager()
 
-    member self.EmitInstr(label: Label, instr: Instr) : unit =
-        if not (chunks.ContainsKey label) then
-            chunks <- Map.add label List.Empty chunks
+    member this.EmitInstr(label: Label, instr: Instr) : unit =
+        let chunkNum = this.LabelManager.FindLabelId(label)
 
-        let cur = Map.find label chunks
-        chunks <- Map.add label (List.append cur [ instr ]) chunks
+        while chunks.Count <= chunkNum do
+            chunks.Add(ResizeArray())
 
-    member self.GetInstructions(label: Label) : List<Instr> = Map.find label chunks
+        let cur = chunks.[chunkNum]
+        cur.Add(instr)
+
+    member this.GetInstructions(label: Label) : List<Instr> =
+        chunks.[this.LabelManager.FindLabelId(label)]
+
+    member this.GetInstructions(labelId: int) : List<Instr> = chunks.[labelId]
+
+    member this.GetCurrentOffset(label: Label) : int = this.GetInstructions(label).Count
 
 
 let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
@@ -110,9 +111,12 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
         let constNum = bc.ConstPool.Add var
         bc.EmitInstr(initLabel, Access constNum)
     | Lam (VarName var, body) ->
-        let lamBodyLabel, lamBodyLabelNum = bc.LabelManager.GenScopedLabel(initLabel, "lam")
+        let lamBodyLabel, lamBodyLabelNum =
+            bc.LabelManager.GenScopedLabel(initLabel, "lam")
+
         genBytecodeImpl bc lamBodyLabel body
-        
+        bc.EmitInstr(lamBodyLabel, Ret)
+
         let varNum = bc.ConstPool.Add var
         bc.EmitInstr(initLabel, MkClosure(varNum, lamBodyLabelNum))
     | App (expr, arg) ->
@@ -120,14 +124,25 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
         genBytecodeImpl bc initLabel expr
         bc.EmitInstr(initLabel, Apply)
     | Cond (p, t, f) ->
-        let tbl, tblNum = bc.LabelManager.GenScopedLabel(initLabel, "tb")
-        genBytecodeImpl bc tbl t
-        
-        let fbl, fblNum = bc.LabelManager.GenScopedLabel(initLabel, "fbl")
-        genBytecodeImpl bc fbl f
-        
         genBytecodeImpl bc initLabel p
-        bc.EmitInstr(initLabel, Branch (tblNum, fblNum))
+
+        let tbl, tblNum =
+            bc.LabelManager.GenScopedLabel(initLabel, "tb")
+
+        let fbl, fblNum =
+            bc.LabelManager.GenScopedLabel(initLabel, "fbl")
+
+        bc.EmitInstr(initLabel, Branch({ labelId = tblNum; offset = 0 }, { labelId = fblNum; offset = 0 }))
+
+        let contPointer =
+            { labelId = bc.LabelManager.FindLabelId(initLabel)
+              offset = bc.GetCurrentOffset(initLabel) }
+
+        genBytecodeImpl bc tbl t
+        bc.EmitInstr(tbl, Jump contPointer)
+
+        genBytecodeImpl bc fbl f
+        bc.EmitInstr(fbl, Jump contPointer)
     | Builtin (Arithmetic (arithmeticFn, opA, opB)) ->
         genBytecodeImpl bc initLabel opA
         genBytecodeImpl bc initLabel opB
@@ -149,20 +164,15 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
         let varConst = bc.ConstPool.Add var
 
         if recursive then
-            let bodyLabel, bodyLabelNum = bc.LabelManager.GenScopedLabel(initLabel, $"bind_{var}")
-            let contLabel, contLabelNum = bc.LabelManager.GenScopedLabel(initLabel, $"bind_{var}_cont")
-            
-            genBytecodeImpl bc bodyLabel body
-            bc.EmitInstr(bodyLabel, Jump contLabelNum)
-            
             bc.EmitInstr(initLabel, Bottom)
             bc.EmitInstr(initLabel, Save varConst)
-            bc.EmitInstr(initLabel, Jump bodyLabelNum)
 
-            bc.EmitInstr(contLabel, Drop varConst)
-            bc.EmitInstr(contLabel, SaveRec varConst)
-            genBytecodeImpl bc contLabel expr
-            bc.EmitInstr(contLabel, Drop varConst)
+            genBytecodeImpl bc initLabel body
+            bc.EmitInstr(initLabel, Drop varConst)
+            bc.EmitInstr(initLabel, SaveRec varConst)
+
+            genBytecodeImpl bc initLabel expr
+            bc.EmitInstr(initLabel, Drop varConst)
         else
             genBytecodeImpl bc initLabel body
             bc.EmitInstr(initLabel, Save varConst)
@@ -176,22 +186,24 @@ let genBytecode (expr: Expr) : Bytecode =
     bc
 
 module VM =
-        
+
     [<RequireQualifiedAccess>]
     type Value =
         | Bottom
         | Int of int
         | Closure of Closure
-        | ClosureRec of Closure * recNameId:int
-    and Closure = {env:Env ; varId:int ; labelId:int}
+        | ClosureRec of Closure * recNameId: int
+
+    and Closure = { env: Env; varId: int; labelId: int }
+
     and Env =
         { cur: Map<int, Value>
           prev: Option<Env> }
-        
+
     let envEmpty = { cur = Map.empty; prev = None }
-    
+
     let envTryFind (constId: int) (env: Env) : Option<Value> = Map.tryFind constId env.cur
-    
+
     let envWithBind (constId: int) (value: Value) (env: Env) : Env =
         let cur = Map.add constId value env.cur
         { cur = cur; prev = Some env }
@@ -208,111 +220,136 @@ module VM =
         function
         | Value.Int i -> i
         | other -> raise (InterpException(WrongType(other, "int")))
-        
+
     let valueAsClosureExn =
         function
         | Value.Closure c -> c
         | other -> raise (InterpException(WrongType(other, "closure")))
 
     type VM(bc: Bytecode) =
-        let mutable stack: System.Collections.Generic.Stack<Value> = System.Collections.Generic.Stack()
-        let constLookup = bc.ConstPool.ReverseMapping()
-        let labelLookup = bc.LabelManager.ReverseMapping()
+        let stack: Stack<Value> = Stack()
 
         let mutable env: Env = envEmpty
 
-        member private self.ExecuteImpl(instructions: List<Instr>) =
+        //        let mutable code: ResizeArray<Instr> = ResizeArray()
+        let mutable labelId = 0
+        let mutable instrIdx = 0
+
+        let returnStack: Stack<int * int * Env> = Stack()
+
+        member private this.RunLoop() =
             let mutable shouldHalt = false
 
-            for instr in instructions do
-                if not shouldHalt then
-                    match instr with
-                    | Halt -> shouldHalt <- true
-                    | Bottom -> stack.Push(Value.Bottom)
-                    | IntConst i -> stack.Push(Value.Int i)
-                    | IntOp op ->
-                        let arg2 = stack.Pop() |> valueAsIntExn
-                        let arg1 = stack.Pop() |> valueAsIntExn
+            while (instrIdx < bc.GetInstructions(labelId).Count)
+                  && (not shouldHalt) do
+                let instr = bc.GetInstructions(labelId).[instrIdx]
+                instrIdx <- instrIdx + 1
 
-                        let result =
-                            match op with
-                            | IntOp.Add -> arg1 + arg2
-                            | IntOp.Sub -> arg1 - arg2
-                            | IntOp.Mul -> arg1 * arg2
-                            | IntOp.Div -> arg1 / arg2
+                match instr with
+                | Halt -> shouldHalt <- true
+                | Bottom -> stack.Push(Value.Bottom)
+                | IntConst i -> stack.Push(Value.Int i)
+                | IntOp op ->
+                    let arg2 = stack.Pop() |> valueAsIntExn
+                    let arg1 = stack.Pop() |> valueAsIntExn
 
-                        stack.Push(Value.Int result)
-                    | IntCmp op ->
-                        let arg2 = stack.Pop() |> valueAsIntExn
-                        let arg1 = stack.Pop() |> valueAsIntExn
+                    let result =
+                        match op with
+                        | IntOp.Add -> arg1 + arg2
+                        | IntOp.Sub -> arg1 - arg2
+                        | IntOp.Mul -> arg1 * arg2
+                        | IntOp.Div -> arg1 / arg2
 
-                        let result =
-                            match op with
-                            | IntCmp.Less -> if arg1 < arg2 then 1 else 0
-                            | IntCmp.Equal -> if arg1 = arg2 then 1 else 0
-                            | IntCmp.Greater -> if arg1 > arg2 then 1 else 0
+                    stack.Push(Value.Int result)
+                | IntCmp op ->
+                    let arg2 = stack.Pop() |> valueAsIntExn
+                    let arg1 = stack.Pop() |> valueAsIntExn
 
-                        stack.Push(Value.Int result)
-                    | Access nameId ->
-                        match envTryFind nameId env with
-                        | Some v ->
-                            match v with
-                            | Value.Bottom -> raise (InterpException(AccessUneval constLookup[nameId]))
-                            | _ -> stack.Push(v)
-                        | None -> raise (InterpException(UnboundVar constLookup[nameId]))
-                    | Save nameId ->
-                        let value = stack.Pop()
-                        env <- envWithBind nameId value env
-                    | Drop nameId ->
-                        match env.prev with
-                        | Some prev -> env <- prev
-                        | _ -> raise (InterpException(Internal $"Env violation: drop {constLookup[nameId]} with empty previous env"))
-                    | SaveRec nameId ->
-                        // TODO: need to handle ClosureRec too?
-                        let closureValue = stack.Pop() |> valueAsClosureExn
-                        let closureRec = Value.ClosureRec(closureValue, nameId)
-                        env <- envWithBind nameId closureRec env
-                    | Jump labelId ->
-                        let nextInstructions = bc.GetInstructions(labelLookup[labelId])
-                        // TODO: this is ridiculous
-                        shouldHalt <- true
-                        self.ExecuteImpl(nextInstructions)
-                    | Branch (t, f) ->
-                        let value = stack.Pop() |> valueAsIntExn
-                        let target = if value <> 0 then t else f
-                        let nextInstructions = bc.GetInstructions(labelLookup[target])
-                        // TODO: this is ridiculous
-                        shouldHalt <- true
-                        self.ExecuteImpl(nextInstructions)
-                    | MkClosure(nameId, labelId) ->
-                        let closure = Value.Closure {env = env; varId = nameId; labelId = labelId}
-                        stack.Push(closure)
-                    | Apply ->
-                        let value = stack.Pop()
-                        match value with
-                        | Value.Closure closure ->
-                            let arg = stack.Pop()
-                            let savedEnv = env
-                            env <- envWithBind closure.varId arg closure.env
-                            let nextInstructions = bc.GetInstructions(labelLookup[closure.labelId])
-                            self.ExecuteImpl(nextInstructions)
-                            env <- savedEnv
-                        | Value.ClosureRec(closure, recNameId) ->
-                            let arg = stack.Pop()
-                            let savedEnv = env
-                            env <- closure.env |> envWithBind closure.varId arg |> envWithBind recNameId value
-                            let nextInstructions = bc.GetInstructions(labelLookup[closure.labelId])
-                            self.ExecuteImpl(nextInstructions)
-                            env <- savedEnv
-                        | other -> raise (InterpException(WrongType(other, "closure"))) 
+                    let result =
+                        match op with
+                        | IntCmp.Less -> if arg1 < arg2 then 1 else 0
+                        | IntCmp.Equal -> if arg1 = arg2 then 1 else 0
+                        | IntCmp.Greater -> if arg1 > arg2 then 1 else 0
 
-        member self.Execute() =
-            let main =
-                bc.GetInstructions(LabelManager.EntryLabel)
+                    stack.Push(Value.Int result)
+                | Access nameId ->
+                    match envTryFind nameId env with
+                    | Some v ->
+                        match v with
+                        | Value.Bottom -> raise (InterpException(AccessUneval(bc.ConstPool.FindName(nameId))))
+                        | _ -> stack.Push(v)
+                    | None -> raise (InterpException(UnboundVar(bc.ConstPool.FindName(nameId))))
+                | Save nameId ->
+                    let value = stack.Pop()
+                    env <- envWithBind nameId value env
+                | Drop nameId ->
+                    match env.prev with
+                    | Some prev -> env <- prev
+                    | _ ->
+                        raise (
+                            InterpException(
+                                Internal $"Env violation: drop {bc.ConstPool.FindName(nameId)} with empty previous env"
+                            )
+                        )
+                | SaveRec nameId ->
+                    // TODO: need to handle ClosureRec too?
+                    let closureValue = stack.Pop() |> valueAsClosureExn
+                    let closureRec = Value.ClosureRec(closureValue, nameId)
+                    env <- envWithBind nameId closureRec env
+                | Jump codePointer ->
+                    labelId <- codePointer.labelId
+                    instrIdx <- codePointer.offset
+                | Branch (t, f) ->
+                    let value = stack.Pop() |> valueAsIntExn
+                    let target = if value <> 0 then t else f
 
-            self.ExecuteImpl(main)
+                    labelId <- target.labelId
+                    instrIdx <- target.offset
+                | MkClosure (nameId, labelId) ->
+                    let closure =
+                        Value.Closure
+                            { env = env
+                              varId = nameId
+                              labelId = labelId }
 
-        member self.CurrentValue: Option<Value> =
+                    stack.Push(closure)
+                | Apply ->
+                    let potentialClosure = stack.Pop()
+                    let arg = stack.Pop()
+
+                    let newEnv, newLabelId =
+                        match potentialClosure with
+                        | Value.Closure closure -> envWithBind closure.varId arg closure.env, closure.labelId
+                        | Value.ClosureRec (closure, recNameId) ->
+                            let newEnv =
+                                closure.env
+                                |> envWithBind closure.varId arg
+                                |> envWithBind recNameId potentialClosure
+
+                            newEnv, closure.labelId
+                        | other -> raise (InterpException(WrongType(other, "closure")))
+
+                    returnStack.Push(labelId, instrIdx, env)
+
+                    labelId <- newLabelId
+                    instrIdx <- 0
+                    env <- newEnv
+                | Ret ->
+                    let contLabelId, contInstrIdx, contEnv = returnStack.Pop()
+                    labelId <- contLabelId
+                    instrIdx <- contInstrIdx
+                    env <- contEnv
+
+        member this.Execute() =
+            let mainLabelId =
+                bc.LabelManager.FindLabelId(LabelManager.EntryLabel)
+
+            labelId <- mainLabelId
+            instrIdx <- 0
+
+            this.RunLoop()
+
+        member this.CurrentValue: Option<Value> =
             if stack.Count = 0 then
                 None
             else
@@ -323,22 +360,23 @@ open VM
 module Ex =
     let eval expr =
         let startTs = System.DateTime.Now
-        
+
         let bc = genBytecode expr
         let bcDoneTs = System.DateTime.Now
-        
+
         let vm = VM.VM(bc)
+
         try
             vm.Execute()
             let finishTs = System.DateTime.Now
             let value = vm.CurrentValue
-            
+
             let bcDur = bcDoneTs - startTs
             let exeDur = finishTs - bcDoneTs
             printfn $"[{bcDur.TotalMilliseconds}/{exeDur.TotalMilliseconds}>> {value}"
         with
         | InterpException err -> printfn $"!! {err}"
-        
+
     let ex1_AST =
         // 2 + 3 * 4
         Builtin(
@@ -366,32 +404,26 @@ module Ex =
                     recursive = false,
                     var = VarName "y",
                     body = Lit(BType.Int 42),
-                    expr =
-                        Builtin(Arithmetic(Sub, Var (VarName "x"), Var (VarName "y")))
-                    )
-            )
-        
+                    expr = Builtin(Arithmetic(Sub, Var(VarName "x"), Var(VarName "y")))
+                )
+        )
+
     let ex3_AST =
         Bind(
             recursive = false,
             var = VarName "plus42",
-            body = Lam(VarName "x", Builtin(Arithmetic(Add, Var (VarName "x"), Lit (BType.Int 42)))),
-            expr =
-                App(Var (VarName "plus42"), Lit (BType.Int 3))
-            )
-        
+            body = Lam(VarName "x", Builtin(Arithmetic(Add, Var(VarName "x"), Lit(BType.Int 42)))),
+            expr = App(Var(VarName "plus42"), Lit(BType.Int 3))
+        )
+
     let ex4_AST =
         Bind(
             recursive = false,
             var = VarName "plusN",
-            body = Lam(VarName "N",
-                       Lam(VarName "x",
-                           Builtin(Arithmetic(Add, Var (VarName "x"), Var (VarName "N"))))),
-            expr =
-                App(
-                    App(Var (VarName "plusN"), Lit (BType.Int 3)),
-                    Lit (BType.Int 5)))
-            
+            body = Lam(VarName "N", Lam(VarName "x", Builtin(Arithmetic(Add, Var(VarName "x"), Var(VarName "N"))))),
+            expr = App(App(Var(VarName "plusN"), Lit(BType.Int 3)), Lit(BType.Int 5))
+        )
+
 
     let ex5_AST (num: int) =
         let fib = VarName "fib"
@@ -410,5 +442,5 @@ module Ex =
             recursive = true,
             var = fib,
             body = Lam(n, Cond(leqOne, one, Builtin(Arithmetic(Add, fn1, fn2)))),
-            expr = App(Var fib, Lit (BType.Int num))
+            expr = App(Var fib, Lit(BType.Int num))
         )
