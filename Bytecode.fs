@@ -22,11 +22,12 @@ type Instr =
     | IntOp of IntOp
     | IntCmp of IntCmp
     | Access of nameId:int
-    | MkClosure of nameId:int * labelId:int
     | Save of nameId:int
     | Drop of nameId:int
     | SaveRec of nameId:int
-    | Branch of labelId:int
+    | Jump of labelId:int
+    | Branch of trueId:int * falseId:int
+    | MkClosure of nameId:int * labelId:int
     | Apply
 
 type ConstPool() =
@@ -56,23 +57,23 @@ type LabelManager() =
     let mutable mapping: Map<Label, int> =
         Map.ofList [ LabelManager.EntryLabel, 0 ]
 
-    member self.GenLabel() : Label =
+    member self.GenLabel() : Label * int =
         let nextId = mapping.Count
         let label = $"gen_lbl_{nextId}"
         mapping <- Map.add label nextId mapping
-        label
+        label, nextId
 
-    member self.GenNamedLabel(name: string) : Label =
+    member self.GenNamedLabel(name: string) : Label * int =
         let nextId = mapping.Count
         let label = $"{name}_lbl_{nextId}"
         mapping <- Map.add label nextId mapping
-        label
+        label, nextId
 
-    member self.GenScopedLabel(scope: Label, name: string) : Label =
+    member self.GenScopedLabel(scope: Label, name: string) : Label * int =
         let nextId = mapping.Count
         let label = $"{scope}_{name}_lbl_{nextId}"
         mapping <- Map.add label nextId mapping
-        label
+        label, nextId
 
     member self.FindLabelId(label: Label) : int = Map.find label mapping
 
@@ -109,8 +110,7 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
         let constNum = bc.ConstPool.Add var
         bc.EmitInstr(initLabel, Access constNum)
     | Lam (VarName var, body) ->
-        let lamBodyLabel = bc.LabelManager.GenScopedLabel(initLabel, "lam")
-        let lamBodyLabelNum = bc.LabelManager.FindLabelId(lamBodyLabel)
+        let lamBodyLabel, lamBodyLabelNum = bc.LabelManager.GenScopedLabel(initLabel, "lam")
         genBytecodeImpl bc lamBodyLabel body
         
         let varNum = bc.ConstPool.Add var
@@ -119,6 +119,15 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
         genBytecodeImpl bc initLabel arg
         genBytecodeImpl bc initLabel expr
         bc.EmitInstr(initLabel, Apply)
+    | Cond (p, t, f) ->
+        let tbl, tblNum = bc.LabelManager.GenScopedLabel(initLabel, "tb")
+        genBytecodeImpl bc tbl t
+        
+        let fbl, fblNum = bc.LabelManager.GenScopedLabel(initLabel, "fbl")
+        genBytecodeImpl bc fbl f
+        
+        genBytecodeImpl bc initLabel p
+        bc.EmitInstr(initLabel, Branch (tblNum, fblNum))
     | Builtin (Arithmetic (arithmeticFn, opA, opB)) ->
         genBytecodeImpl bc initLabel opA
         genBytecodeImpl bc initLabel opB
@@ -140,17 +149,15 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
         let varConst = bc.ConstPool.Add var
 
         if recursive then
-            let bodyLabel = bc.LabelManager.GenScopedLabel(initLabel, $"bind_{var}")
-            let bodyLabelNum = bc.LabelManager.FindLabelId(bodyLabel)
-            let contLabel = bc.LabelManager.GenScopedLabel(initLabel, $"bind_{var}_cont")
-            let contLabelNum = bc.LabelManager.FindLabelId(contLabel)
+            let bodyLabel, bodyLabelNum = bc.LabelManager.GenScopedLabel(initLabel, $"bind_{var}")
+            let contLabel, contLabelNum = bc.LabelManager.GenScopedLabel(initLabel, $"bind_{var}_cont")
             
             genBytecodeImpl bc bodyLabel body
-            bc.EmitInstr(bodyLabel, Branch contLabelNum)
+            bc.EmitInstr(bodyLabel, Jump contLabelNum)
             
             bc.EmitInstr(initLabel, Bottom)
             bc.EmitInstr(initLabel, Save varConst)
-            bc.EmitInstr(initLabel, Branch bodyLabelNum)
+            bc.EmitInstr(initLabel, Jump bodyLabelNum)
 
             bc.EmitInstr(contLabel, Drop varConst)
             bc.EmitInstr(contLabel, SaveRec varConst)
@@ -161,8 +168,6 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
             bc.EmitInstr(initLabel, Save varConst)
             genBytecodeImpl bc initLabel expr
             bc.EmitInstr(initLabel, Drop varConst)
-
-//    | other -> failwith $"Not implemented for {other}"
 
 let genBytecode (expr: Expr) : Bytecode =
     let bc = Bytecode()
@@ -178,7 +183,7 @@ module VM =
         | Int of int
         | Closure of Closure
         | ClosureRec of Closure * recNameId:int
-    and Closure = {env:Env ; nameId:int ; labelId:int}
+    and Closure = {env:Env ; varId:int ; labelId:int}
     and Env =
         { cur: Map<int, Value>
           prev: Option<Env> }
@@ -237,6 +242,17 @@ module VM =
                             | IntOp.Div -> arg1 / arg2
 
                         stack.Push(Value.Int result)
+                    | IntCmp op ->
+                        let arg2 = stack.Pop() |> valueAsIntExn
+                        let arg1 = stack.Pop() |> valueAsIntExn
+
+                        let result =
+                            match op with
+                            | IntCmp.Less -> if arg1 < arg2 then 1 else 0
+                            | IntCmp.Equal -> if arg1 = arg2 then 1 else 0
+                            | IntCmp.Greater -> if arg1 > arg2 then 1 else 0
+
+                        stack.Push(Value.Int result)
                     | Access nameId ->
                         match envTryFind nameId env with
                         | Some v ->
@@ -256,12 +272,39 @@ module VM =
                         let closureValue = stack.Pop() |> valueAsClosureExn
                         let closureRec = Value.ClosureRec(closureValue, nameId)
                         env <- envWithBind nameId closureRec env
-                    | Branch labelId ->
+                    | Jump labelId ->
                         let nextInstructions = bc.GetInstructions(labelLookup[labelId])
                         // TODO: this is ridiculous
                         shouldHalt <- true
                         self.ExecuteImpl(nextInstructions)
-                    | _ -> failwith $"Not implemented: {instr}"
+                    | Branch (t, f) ->
+                        let value = stack.Pop() |> valueAsIntExn
+                        let target = if value <> 0 then t else f
+                        let nextInstructions = bc.GetInstructions(labelLookup[target])
+                        // TODO: this is ridiculous
+                        shouldHalt <- true
+                        self.ExecuteImpl(nextInstructions)
+                    | MkClosure(nameId, labelId) ->
+                        let closure = Value.Closure {env = env; varId = nameId; labelId = labelId}
+                        stack.Push(closure)
+                    | Apply ->
+                        let value = stack.Pop()
+                        match value with
+                        | Value.Closure closure ->
+                            let arg = stack.Pop()
+                            let savedEnv = env
+                            env <- envWithBind closure.varId arg closure.env
+                            let nextInstructions = bc.GetInstructions(labelLookup[closure.labelId])
+                            self.ExecuteImpl(nextInstructions)
+                            env <- savedEnv
+                        | Value.ClosureRec(closure, recNameId) ->
+                            let arg = stack.Pop()
+                            let savedEnv = env
+                            env <- closure.env |> envWithBind closure.varId arg |> envWithBind recNameId value
+                            let nextInstructions = bc.GetInstructions(labelLookup[closure.labelId])
+                            self.ExecuteImpl(nextInstructions)
+                            env <- savedEnv
+                        | other -> raise (InterpException(WrongType(other, "closure"))) 
 
         member self.Execute() =
             let main =
@@ -275,7 +318,27 @@ module VM =
             else
                 Some(stack.Peek())
 
+open VM
+
 module Ex =
+    let eval expr =
+        let startTs = System.DateTime.Now
+        
+        let bc = genBytecode expr
+        let bcDoneTs = System.DateTime.Now
+        
+        let vm = VM.VM(bc)
+        try
+            vm.Execute()
+            let finishTs = System.DateTime.Now
+            let value = vm.CurrentValue
+            
+            let bcDur = bcDoneTs - startTs
+            let exeDur = finishTs - bcDoneTs
+            printfn $"[{bcDur.TotalMilliseconds}/{exeDur.TotalMilliseconds}>> {value}"
+        with
+        | InterpException err -> printfn $"!! {err}"
+        
     let ex1_AST =
         // 2 + 3 * 4
         Builtin(
@@ -291,13 +354,6 @@ module Ex =
                 )
             )
         )
-        
-    let eval expr =
-        let bc = genBytecode expr
-        let vm = VM.VM(bc)
-        vm.Execute()
-        let value = vm.CurrentValue
-        printfn $"->> {value}"
 
     let ex2_AST =
         // let x = 2 + 3 * 4 in let y = 42 in x - y
@@ -314,3 +370,45 @@ module Ex =
                         Builtin(Arithmetic(Sub, Var (VarName "x"), Var (VarName "y")))
                     )
             )
+        
+    let ex3_AST =
+        Bind(
+            recursive = false,
+            var = VarName "plus42",
+            body = Lam(VarName "x", Builtin(Arithmetic(Add, Var (VarName "x"), Lit (BType.Int 42)))),
+            expr =
+                App(Var (VarName "plus42"), Lit (BType.Int 3))
+            )
+        
+    let ex4_AST =
+        Bind(
+            recursive = false,
+            var = VarName "plusN",
+            body = Lam(VarName "N",
+                       Lam(VarName "x",
+                           Builtin(Arithmetic(Add, Var (VarName "x"), Var (VarName "N"))))),
+            expr =
+                App(
+                    App(Var (VarName "plusN"), Lit (BType.Int 3)),
+                    Lit (BType.Int 5)))
+            
+
+    let ex5_AST (num: int) =
+        let fib = VarName "fib"
+        let n = VarName "n"
+        let one = Lit(BType.Int 1)
+        let two = Lit(BType.Int 2)
+        let leqOne = Builtin(Comparison(Less, Var n, two))
+
+        let fn1 =
+            App(Var fib, Builtin(Arithmetic(Sub, Var n, one)))
+
+        let fn2 =
+            App(Var fib, Builtin(Arithmetic(Sub, Var n, two)))
+
+        Bind(
+            recursive = true,
+            var = fib,
+            body = Lam(n, Cond(leqOne, one, Builtin(Arithmetic(Add, fn1, fn2)))),
+            expr = App(Var fib, Lit (BType.Int num))
+        )

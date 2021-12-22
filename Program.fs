@@ -7,14 +7,19 @@
 
 [<EntryPoint>]
 let main args =
-//    printfn "Minimal Eager ->"
+    //    printfn "Minimal Eager ->"
 //    MinimalInterpreter.EvalEager.runExamples ()
 //
-//    printfn "With closure and let bindings ->"
-//    Interpreter.Ex.runExamples ()
+    printfn "With closure and let bindings ->"
+    Interpreter.Ex.runExamples ()
+
     printfn "Bytecode interpreter ->"
-    
-    Bytecode.Ex.eval Bytecode.Ex.ex1_AST 
-    Bytecode.Ex.eval Bytecode.Ex.ex2_AST 
+    Bytecode.Ex.eval Bytecode.Ex.ex1_AST
+    Bytecode.Ex.eval Bytecode.Ex.ex2_AST
+    Bytecode.Ex.eval Bytecode.Ex.ex3_AST
+    Bytecode.Ex.eval Bytecode.Ex.ex4_AST
+    Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 20)
+    Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 26)
+    Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 30)
 
     0
