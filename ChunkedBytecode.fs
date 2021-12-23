@@ -246,18 +246,7 @@ module ChunkedVM =
           var: ConstNum
           code: CodePointer }
 
-    and Env =
-        { cur: Map<ConstNum, Value>
-          prev: Option<Env> }
-
-    module Env =
-        let empty = { cur = Map.empty; prev = None }
-
-        let tryFind (name: ConstNum) (env: Env) : Option<Value> = Map.tryFind name env.cur
-
-        let withBinding (name: ConstNum) (value: Value) (env: Env) : Env =
-            let cur = Map.add name value env.cur
-            { cur = cur; prev = Some env }
+    and Env = Map<ConstNum, Value>
 
     type InterpError =
         | WrongType of Value * expected: string
@@ -266,6 +255,18 @@ module ChunkedVM =
         | Internal of msg: string
 
     exception InterpException of InterpError
+
+    module Env =
+        let empty = Map.empty
+
+        let find (name: ConstNum) (env: Env) : Value =
+            try
+                Map.find name env
+            with
+            | :? KeyNotFoundException -> raise (InterpException(UnboundVar($"#{name}")))
+
+        let withBinding (name: ConstNum) (value: Value) (env: Env) : Env = Map.add name value env
+
 
     let valueAsIntExn =
         function
@@ -281,6 +282,7 @@ module ChunkedVM =
         let stack: Stack<Value> = Stack()
 
         let mutable env: Env = Env.empty
+        let mutable envStack: Stack<Env> = Stack()
 
         let mutable code: ResizeArray<Instr> = ResizeArray()
         let mutable codePointer: CodePointer = { chunk = 0; offset = 0 }
@@ -327,28 +329,20 @@ module ChunkedVM =
 
                     stack.Push(Value.Int result)
                 | EnvLoad name ->
-                    match Env.tryFind name env with
-                    | Some v ->
-                        match v with
-                        | Value.Bottom -> raise (InterpException(AccessUneval(bc.ConstPool.FindName(name))))
-                        | _ -> stack.Push(v)
-                    | None -> raise (InterpException(UnboundVar(bc.ConstPool.FindName(name))))
+                    match Env.find name env with
+                    | Value.Bottom -> raise (InterpException(AccessUneval(bc.ConstPool.FindName(name))))
+                    | v -> stack.Push(v)
                 | EnvSave name ->
                     let value = stack.Pop()
+                    envStack.Push(env)
                     env <- Env.withBinding name value env
                 | EnvDrop nameId ->
-                    match env.prev with
-                    | Some prev -> env <- prev
-                    | _ ->
-                        raise (
-                            InterpException(
-                                Internal $"Env violation: drop {bc.ConstPool.FindName(nameId)} with empty previous env"
-                            )
-                        )
+                    env <- envStack.Pop()
                 | EnvSaveRec nameId ->
                     // TODO: need to handle ClosureRec too?
                     let closureValue = stack.Pop() |> valueAsClosureExn
                     let closureRec = Value.ClosureRec(closureValue, nameId)
+                    envStack.Push(env)
                     env <- Env.withBinding nameId closureRec env
                 | Jump label ->
                     let newCode, newCodePointer = bc.GetInstructions(label)

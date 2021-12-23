@@ -218,26 +218,15 @@ module FlatVM =
     type Value =
         | Bottom
         | Int of intVal: int
-        | Closure of regularClosure: Closure
+        | Closure of regClosure: Closure
         | ClosureRec of recClosure: Closure * recVar: ConstNum
 
-    and [<Struct>] Closure =
+    and Closure =
         { env: Env
           var: ConstNum
           code: CodePointer }
 
-    and Env =
-        { cur: Map<ConstNum, Value>
-          prev: Option<Env> }
-
-    module Env =
-        let empty = { cur = Map.empty; prev = None }
-
-        let tryFind (name: ConstNum) (env: Env) : Option<Value> = Map.tryFind name env.cur
-
-        let withBinding (name: ConstNum) (value: Value) (env: Env) : Env =
-            let cur = Map.add name value env.cur
-            { cur = cur; prev = Some env }
+    and Env = Map<ConstNum, Value>
 
     type InterpError =
         | WrongType of Value * expected: string
@@ -246,6 +235,17 @@ module FlatVM =
         | Internal of msg: string
 
     exception InterpException of InterpError
+
+    module Env =
+        let empty = Map.empty
+
+        let find (name: ConstNum) (env: Env) : Value =
+            try
+                Map.find name env
+            with
+            | :? System.Collections.Generic.KeyNotFoundException -> raise (InterpException(UnboundVar($"#{name}")))
+
+        let withBinding (name: ConstNum) (value: Value) (env: Env) : Env = Map.add name value env
 
     let valueAsIntExn =
         function
@@ -262,9 +262,9 @@ module FlatVM =
     type VM(bc: Bytecode) =
         let stack: Stack<Value> = Stack()
         let mutable env: Env = Env.empty
+        let envStack: Stack<Env> = Stack()
 
         let mutable codePointer: CodePointer = bc.entry
-
         let returnStack: Stack<CodePointer * Env> = Stack()
 
         member private this.RunLoop() =
@@ -320,12 +320,9 @@ module FlatVM =
 
                     codePointer <- codePointer + 4
 
-                    match Env.tryFind name env with
-                    | Some v ->
-                        match v with
-                        | Value.Bottom -> raise (InterpException(AccessUneval($"#{name}")))
-                        | _ -> stack.Push(v)
-                    | None -> raise (InterpException(UnboundVar($"#{name}")))
+                    match Env.find name env with
+                    | Value.Bottom -> raise (InterpException(AccessUneval($"#{name}")))
+                    | v -> stack.Push(v)
                 | OpCodeNum.EnvSave ->
                     let name =
                         BytecodeElement.deserializeInt (bc.code, codePointer)
@@ -333,6 +330,8 @@ module FlatVM =
                     codePointer <- codePointer + 4
 
                     let value = stack.Pop()
+
+                    envStack.Push(env)
                     env <- Env.withBinding name value env
                 | OpCodeNum.EnvDrop ->
                     let name =
@@ -340,9 +339,7 @@ module FlatVM =
 
                     codePointer <- codePointer + 4
 
-                    match env.prev with
-                    | Some prev -> env <- prev
-                    | _ -> raise (InterpException(Internal $"Env violation: drop #{name} with empty previous env"))
+                    env <- envStack.Pop()
                 | OpCodeNum.EnvSaveRec ->
                     let name =
                         BytecodeElement.deserializeInt (bc.code, codePointer)
@@ -352,6 +349,8 @@ module FlatVM =
                     // TODO: need to handle ClosureRec too?
                     let closureValue = stack.Pop() |> valueAsClosureExn
                     let closureRec = Value.ClosureRec(closureValue, name)
+
+                    envStack.Push(env)
                     env <- Env.withBinding name closureRec env
                 | OpCodeNum.Jump ->
                     let target =
