@@ -214,13 +214,14 @@ module FlatVM =
     type CodePointer = int
 
     [<RequireQualifiedAccess>]
+    [<Struct>]
     type Value =
         | Bottom
-        | Int of int
-        | Closure of Closure
-        | ClosureRec of Closure * recName: ConstNum
+        | Int of intVal: int
+        | Closure of regularClosure: Closure
+        | ClosureRec of recClosure: Closure * recVar: ConstNum
 
-    and Closure =
+    and [<Struct>] Closure =
         { env: Env
           var: ConstNum
           code: CodePointer }

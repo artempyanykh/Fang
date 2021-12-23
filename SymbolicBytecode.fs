@@ -1,7 +1,6 @@
 module Fang.SymbolicBytecode
 
 open System.Collections.Generic
-open Fang
 open Fang.Lang
 
 [<RequireQualifiedAccess>]
@@ -17,6 +16,7 @@ type IntCmp =
     | Equal
     | Greater
 
+[<Struct>]
 type ConstNum = ConstNum of int
 
 module ConstNum =
@@ -26,6 +26,7 @@ module ConstNum =
 type Label = string
 type LabelNum = int
 
+[<Struct>]
 type CodePointer = { chunk: int; offset: int }
 
 type Instr =
@@ -233,11 +234,12 @@ let genBytecode (expr: Expr) : SymbolicBytecode =
 module SymbolicVM =
 
     [<RequireQualifiedAccess>]
+    [<Struct>]
     type Value =
         | Bottom
-        | Int of int
-        | Closure of Closure
-        | ClosureRec of Closure * recName: ConstNum
+        | Int of intVal: int
+        | Closure of regularClosure: Closure
+        | ClosureRec of recClosure: Closure * recVar: ConstNum
 
     and Closure =
         { env: Env
