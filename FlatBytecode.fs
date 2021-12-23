@@ -1,9 +1,9 @@
 module Fang.FlatBytecode
 
 open System
-open Fang.SymbolicBytecode
+open Fang.ChunkedBytecode
 
-module SB = SymbolicBytecode
+module SB = ChunkedBytecode
 
 type Bytecode = { code: array<byte>; entry: int }
 
@@ -153,7 +153,7 @@ module BytecodeElement =
 type Dictionary<'K, 'V> = System.Collections.Generic.Dictionary<'K, 'V>
 
 module Bytecode =
-    let build (sb: SB.SymbolicBytecode) : Bytecode =
+    let build (sb: SB.Bytecode) : Bytecode =
         let mutable curOffset = 0
         let offsetMap: Dictionary<int * int, int> = Dictionary()
         let bytecode: ResizeArray<byte> = ResizeArray()

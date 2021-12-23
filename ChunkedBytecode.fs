@@ -1,4 +1,4 @@
-module Fang.SymbolicBytecode
+module Fang.ChunkedBytecode
 
 open System.Collections.Generic
 open Fang.Lang
@@ -93,7 +93,7 @@ type Chunk = int
 
 exception BytecodeException of string
 
-type SymbolicBytecode() =
+type Bytecode() =
     let chunks: ResizeArray<ResizeArray<Instr>> = ResizeArray()
     let labelMapping: Dictionary<LabelNum, CodePointer> = Dictionary()
 
@@ -137,7 +137,7 @@ type SymbolicBytecode() =
     member this.GetCurrentOffset(chunk: Chunk) : int = chunks.[chunk].Count
 
 
-let rec genBytecodeImpl (bc: SymbolicBytecode) (chunk: Chunk) (expr: Expr) : unit =
+let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
     match expr with
     | Lit (BType.Int v) -> bc.EmitInstr(chunk, IntConst v)
     | Lit BType.Unit -> bc.EmitInstr(chunk, IntConst 0)
@@ -221,8 +221,8 @@ let rec genBytecodeImpl (bc: SymbolicBytecode) (chunk: Chunk) (expr: Expr) : uni
             genBytecodeImpl bc chunk expr
             bc.EmitInstr(chunk, EnvDrop varConst)
 
-let genBytecode (expr: Expr) : SymbolicBytecode =
-    let bc = SymbolicBytecode()
+let genBytecode (expr: Expr) : Bytecode =
+    let bc = Bytecode()
 
     let entry, _ =
         bc.AllocNamedChunk(LabelManager.EntryLabel)
@@ -231,7 +231,7 @@ let genBytecode (expr: Expr) : SymbolicBytecode =
     bc.EmitInstr(entry, Halt)
     bc
 
-module SymbolicVM =
+module ChunkedVM =
 
     [<RequireQualifiedAccess>]
     [<Struct>]
@@ -277,7 +277,7 @@ module SymbolicVM =
         | Value.Closure c -> c
         | other -> raise (InterpException(WrongType(other, "closure")))
 
-    type VM(bc: SymbolicBytecode) =
+    type VM(bc: Bytecode) =
         let stack: Stack<Value> = Stack()
 
         let mutable env: Env = Env.empty
@@ -410,16 +410,16 @@ module SymbolicVM =
             else
                 Some(stack.Peek())
 
-open SymbolicVM
-
 module Ex =
+    open ChunkedVM
+
     let evalPrint expr =
         let startTs = System.DateTime.Now
 
         let bc = genBytecode expr
         let bcDoneTs = System.DateTime.Now
 
-        let vm = SymbolicVM.VM(bc)
+        let vm = ChunkedVM.VM(bc)
 
         try
             vm.Execute()
