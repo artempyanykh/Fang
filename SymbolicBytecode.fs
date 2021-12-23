@@ -92,7 +92,7 @@ type Chunk = int
 
 exception BytecodeException of string
 
-type Bytecode() =
+type SymbolicBytecode() =
     let chunks: ResizeArray<ResizeArray<Instr>> = ResizeArray()
     let labelMapping: Dictionary<LabelNum, CodePointer> = Dictionary()
 
@@ -134,7 +134,7 @@ type Bytecode() =
     member this.GetCurrentOffset(chunk: Chunk) : int = chunks.[chunk].Count
 
 
-let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
+let rec genBytecodeImpl (bc: SymbolicBytecode) (chunk: Chunk) (expr: Expr) : unit =
     match expr with
     | Lit (BType.Int v) -> bc.EmitInstr(chunk, IntConst v)
     | Lit BType.Unit -> bc.EmitInstr(chunk, IntConst 0)
@@ -218,8 +218,8 @@ let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
             genBytecodeImpl bc chunk expr
             bc.EmitInstr(chunk, EnvDrop varConst)
 
-let genBytecode (expr: Expr) : Bytecode =
-    let bc = Bytecode()
+let genBytecode (expr: Expr) : SymbolicBytecode =
+    let bc = SymbolicBytecode()
 
     let entry, _ =
         bc.AllocNamedChunk(LabelManager.EntryLabel)
@@ -228,7 +228,7 @@ let genBytecode (expr: Expr) : Bytecode =
     bc.EmitInstr(entry, Halt)
     bc
 
-module VM =
+module SymbolicVM =
 
     [<RequireQualifiedAccess>]
     type Value =
@@ -273,7 +273,7 @@ module VM =
         | Value.Closure c -> c
         | other -> raise (InterpException(WrongType(other, "closure")))
 
-    type VM(bc: Bytecode) =
+    type VM(bc: SymbolicBytecode) =
         let stack: Stack<Value> = Stack()
 
         let mutable env: Env = Env.empty
@@ -406,7 +406,7 @@ module VM =
             else
                 Some(stack.Peek())
 
-open VM
+open SymbolicVM
 
 module Ex =
     let eval expr =
@@ -415,7 +415,7 @@ module Ex =
         let bc = genBytecode expr
         let bcDoneTs = System.DateTime.Now
 
-        let vm = VM.VM(bc)
+        let vm = SymbolicVM.VM(bc)
 
         try
             vm.Execute()
