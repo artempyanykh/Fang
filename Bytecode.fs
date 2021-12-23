@@ -1,6 +1,7 @@
 module Fang.Bytecode
 
 open System.Collections.Generic
+open Fang
 open Fang.Lang
 
 [<RequireQualifiedAccess>]
@@ -16,12 +17,16 @@ type IntCmp =
     | Equal
     | Greater
 
-type Const = Const of int
+type ConstNum = ConstNum of int
 
-module Const =
-    let unwrap (Const inner) : int = inner
+module ConstNum =
+    let unwrap (ConstNum inner) : int = inner
 
-type CodePointer = { label: int; offset: int }
+
+type Label = string
+type LabelNum = int
+
+type CodePointer = { chunk: int; offset: int }
 
 type Instr =
     | Halt
@@ -29,165 +34,189 @@ type Instr =
     | IntConst of int
     | IntOp of IntOp
     | IntCmp of IntCmp
-    | EnvLoad of name: Const
-    | EnvSave of name: Const
-    | EnvDrop of name: Const
-    | EnvSaveRec of name: Const
-    | Jump of CodePointer
-    | Branch of trueBranch: CodePointer * falseBranch: CodePointer
-    | MakeClosure of var: Const * code: CodePointer
+    | EnvLoad of name: ConstNum
+    | EnvSave of name: ConstNum
+    | EnvDrop of name: ConstNum
+    | EnvSaveRec of name: ConstNum
+    | Jump of LabelNum
+    | Branch of trueBranch: LabelNum * falseBranch: LabelNum
+    | MakeClosure of var: ConstNum * code: LabelNum
     | Apply
     | Return
 
 type ConstPool() =
-    let mapping: Dictionary<string, Const> = Dictionary()
+    let mapping: Dictionary<string, ConstNum> = Dictionary()
     let reverseMapping: ResizeArray<string> = ResizeArray()
 
-    member this.Add(value: string) : Const =
+    member this.Add(value: string) : ConstNum =
         if mapping.ContainsKey(value) then
             mapping.[value]
         else
-            let nextNum = Const mapping.Count
+            let nextNum = ConstNum mapping.Count
             mapping.Add(value, nextNum)
             reverseMapping.Add(value)
             nextNum
 
-    member this.FindNum(value: string) : Const = mapping.[value]
+    member this.FindNum(value: string) : ConstNum = mapping.[value]
 
-    member this.FindName(num: Const) : string = reverseMapping.[num |> Const.unwrap]
+    member this.FindName(num: ConstNum) : string = reverseMapping.[num |> ConstNum.unwrap]
 
-type Label = string
 
 type LabelManager() =
-    let mapping: Dictionary<Label, int> =
-        Dictionary(Map.ofList [ (LabelManager.EntryLabel, 0) ])
+    let mapping: Dictionary<Label, LabelNum> = Dictionary()
 
-    let reverseMapping: ResizeArray<Label> = ResizeArray([ LabelManager.EntryLabel ])
+    let reverseMapping: ResizeArray<Label> = ResizeArray()
 
-    member private this.AddLabel(name: string) : Label * int =
+    member private this.AddLabel(name: string) : LabelNum =
         let nextId = mapping.Count
-        let label = $"l{nextId}_{name}"
+
+        let label =
+            if name = LabelManager.EntryLabel then
+                name
+            else
+                $"{name}{nextId}"
+
         mapping.Add(label, nextId)
         reverseMapping.Add(label)
-        label, nextId
+        nextId
 
-    member this.GenLabel() : Label * int = this.AddLabel("gen")
+    member this.GenNamedLabel(name: string) : LabelNum = this.AddLabel(name)
 
-    member this.GenNamedLabel(name: string) : Label * int = this.AddLabel(name)
-
-    member this.GenScopedLabel(scope: Label, name: string) : Label * int =
-        if scope = LabelManager.EntryLabel then
-            this.AddLabel(name)
-        else
-            this.AddLabel($"{scope}_{name}")
-
-    member this.FindLabelId(label: Label) : int = mapping.[label]
-    member this.FindLabel(id: int) : Label = reverseMapping.[id]
+    member this.FindLabelNum(label: Label) : LabelNum = mapping.[label]
+    member this.FindLabel(num: LabelNum) : Label = reverseMapping.[num]
 
     static member EntryLabel: Label = "entry"
 
+type Chunk = int
+
+exception BytecodeException of string
+
 type Bytecode() =
     let chunks: ResizeArray<ResizeArray<Instr>> = ResizeArray()
+    let labelMapping: Dictionary<LabelNum, CodePointer> = Dictionary()
+
     member val ConstPool: ConstPool = ConstPool()
     member val LabelManager: LabelManager = LabelManager()
 
-    member this.EmitInstr(label: Label, instr: Instr) : unit =
-        let chunkNum = this.LabelManager.FindLabelId(label)
+    member this.AllocChunk() : Chunk =
+        let chunk = chunks.Count
+        chunks.Add(ResizeArray())
+        chunk
 
-        while chunks.Count <= chunkNum do
-            chunks.Add(ResizeArray())
-
-        let cur = chunks.[chunkNum]
+    member this.EmitInstr(chunk: Chunk, instr: Instr) : unit =
+        let cur = chunks.[chunk]
         cur.Add(instr)
 
-    member this.GetInstructions(label: Label) : List<Instr> =
-        chunks.[this.LabelManager.FindLabelId(label)]
+    member this.BindLabel(labelNum: LabelNum, cp: CodePointer) : unit = labelMapping.Add(labelNum, cp)
 
-    member this.GetInstructions(labelId: int) : List<Instr> = chunks.[labelId]
+    member this.AllocNamedChunk(name: string) : Chunk * LabelNum =
+        let chunk = this.AllocChunk()
+        let labelNum = this.LabelManager.GenNamedLabel(name)
+        this.BindLabel(labelNum, { chunk = chunk; offset = 0 })
+        chunk, labelNum
 
-    member this.GetCurrentOffset(label: Label) : int = this.GetInstructions(label).Count
+    member this.GetInstructions(label: Label) : ResizeArray<Instr> * CodePointer =
+        this.GetInstructions(this.LabelManager.FindLabelNum(label))
+
+    member this.GetChunk(chunk: Chunk) : ResizeArray<Instr> = chunks.[chunk]
+
+    member this.GetInstructions(labelNum: LabelNum) : ResizeArray<Instr> * CodePointer =
+        let contains, cp = labelMapping.TryGetValue(labelNum)
+
+        if not contains then
+            raise (BytecodeException $"Unbound label: {this.LabelManager.FindLabel(labelNum)}")
+
+        chunks.[cp.chunk], cp
+
+    member this.getCodePointer(labelNum: LabelNum) : CodePointer = labelMapping.[labelNum]
+
+    member this.GetCurrentOffset(chunk: Chunk) : int = chunks.[chunk].Count
 
 
-let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
+let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
     match expr with
-    | Lit (BType.Int v) -> bc.EmitInstr(initLabel, IntConst v)
-    | Lit BType.Unit -> bc.EmitInstr(initLabel, IntConst 0)
+    | Lit (BType.Int v) -> bc.EmitInstr(chunk, IntConst v)
+    | Lit BType.Unit -> bc.EmitInstr(chunk, IntConst 0)
     | Var (VarName var) ->
         let constNum = bc.ConstPool.Add var
-        bc.EmitInstr(initLabel, EnvLoad constNum)
+        bc.EmitInstr(chunk, EnvLoad constNum)
     | Lam (VarName var, body) ->
-        let lamBodyLabel, lamBodyLabelNum =
-            bc.LabelManager.GenScopedLabel(initLabel, "lam")
+        let lamBodyChunk, lamBodyLabelNum = bc.AllocNamedChunk("l")
 
-        genBytecodeImpl bc lamBodyLabel body
-        bc.EmitInstr(lamBodyLabel, Return)
+        genBytecodeImpl bc lamBodyChunk body
+        bc.EmitInstr(lamBodyChunk, Return)
 
         let varNum = bc.ConstPool.Add var
-        bc.EmitInstr(initLabel, MakeClosure(varNum, { label = lamBodyLabelNum; offset = 0 }))
+        bc.EmitInstr(chunk, MakeClosure(varNum, lamBodyLabelNum))
     | App (expr, arg) ->
-        genBytecodeImpl bc initLabel arg
-        genBytecodeImpl bc initLabel expr
-        bc.EmitInstr(initLabel, Apply)
+        genBytecodeImpl bc chunk arg
+        genBytecodeImpl bc chunk expr
+        bc.EmitInstr(chunk, Apply)
     | Cond (p, t, f) ->
-        genBytecodeImpl bc initLabel p
+        genBytecodeImpl bc chunk p
 
-        let tbl, tblNum =
-            bc.LabelManager.GenScopedLabel(initLabel, "tb")
+        let tbChunk, tbLabelNum = bc.AllocNamedChunk("bt")
 
-        let fbl, fblNum =
-            bc.LabelManager.GenScopedLabel(initLabel, "fbl")
+        let fbChunk, fbLabelNum = bc.AllocNamedChunk("bf")
 
-        bc.EmitInstr(initLabel, Branch({ label = tblNum; offset = 0 }, { label = fblNum; offset = 0 }))
+        bc.EmitInstr(chunk, Branch(tbLabelNum, fbLabelNum))
 
         let contPointer =
-            { label = bc.LabelManager.FindLabelId(initLabel)
-              offset = bc.GetCurrentOffset(initLabel) }
+            { chunk = chunk
+              offset = bc.GetCurrentOffset(chunk) }
 
-        genBytecodeImpl bc tbl t
-        bc.EmitInstr(tbl, Jump contPointer)
+        let contLabel = bc.LabelManager.GenNamedLabel("bcont")
+        bc.BindLabel(contLabel, contPointer)
 
-        genBytecodeImpl bc fbl f
-        bc.EmitInstr(fbl, Jump contPointer)
+        genBytecodeImpl bc tbChunk t
+        bc.EmitInstr(tbChunk, Jump contLabel)
+
+        genBytecodeImpl bc fbChunk f
+        bc.EmitInstr(fbChunk, Jump contLabel)
     | Builtin (Arithmetic (arithmeticFn, opA, opB)) ->
-        genBytecodeImpl bc initLabel opA
-        genBytecodeImpl bc initLabel opB
+        genBytecodeImpl bc chunk opA
+        genBytecodeImpl bc chunk opB
 
         match arithmeticFn with
-        | Add -> bc.EmitInstr(initLabel, IntOp IntOp.Add)
-        | Sub -> bc.EmitInstr(initLabel, IntOp IntOp.Sub)
-        | Mul -> bc.EmitInstr(initLabel, IntOp IntOp.Mul)
-        | Div -> bc.EmitInstr(initLabel, IntOp IntOp.Div)
+        | Add -> bc.EmitInstr(chunk, IntOp IntOp.Add)
+        | Sub -> bc.EmitInstr(chunk, IntOp IntOp.Sub)
+        | Mul -> bc.EmitInstr(chunk, IntOp IntOp.Mul)
+        | Div -> bc.EmitInstr(chunk, IntOp IntOp.Div)
     | Builtin (Comparison (comparisonFn, lhs, rhs)) ->
-        genBytecodeImpl bc initLabel lhs
-        genBytecodeImpl bc initLabel rhs
+        genBytecodeImpl bc chunk lhs
+        genBytecodeImpl bc chunk rhs
 
         match comparisonFn with
-        | Less -> bc.EmitInstr(initLabel, IntCmp IntCmp.Less)
-        | Equal -> bc.EmitInstr(initLabel, IntCmp IntCmp.Equal)
-        | Greater -> bc.EmitInstr(initLabel, IntCmp IntCmp.Greater)
+        | Less -> bc.EmitInstr(chunk, IntCmp IntCmp.Less)
+        | Equal -> bc.EmitInstr(chunk, IntCmp IntCmp.Equal)
+        | Greater -> bc.EmitInstr(chunk, IntCmp IntCmp.Greater)
     | Bind (recursive, VarName var, body, expr) ->
         let varConst = bc.ConstPool.Add var
 
         if recursive then
-            bc.EmitInstr(initLabel, Bottom)
-            bc.EmitInstr(initLabel, EnvSave varConst)
+            bc.EmitInstr(chunk, Bottom)
+            bc.EmitInstr(chunk, EnvSave varConst)
 
-            genBytecodeImpl bc initLabel body
-            bc.EmitInstr(initLabel, EnvDrop varConst)
-            bc.EmitInstr(initLabel, EnvSaveRec varConst)
+            genBytecodeImpl bc chunk body
+            bc.EmitInstr(chunk, EnvDrop varConst)
+            bc.EmitInstr(chunk, EnvSaveRec varConst)
 
-            genBytecodeImpl bc initLabel expr
-            bc.EmitInstr(initLabel, EnvDrop varConst)
+            genBytecodeImpl bc chunk expr
+            bc.EmitInstr(chunk, EnvDrop varConst)
         else
-            genBytecodeImpl bc initLabel body
-            bc.EmitInstr(initLabel, EnvSave varConst)
-            genBytecodeImpl bc initLabel expr
-            bc.EmitInstr(initLabel, EnvDrop varConst)
+            genBytecodeImpl bc chunk body
+            bc.EmitInstr(chunk, EnvSave varConst)
+            genBytecodeImpl bc chunk expr
+            bc.EmitInstr(chunk, EnvDrop varConst)
 
 let genBytecode (expr: Expr) : Bytecode =
     let bc = Bytecode()
-    genBytecodeImpl bc LabelManager.EntryLabel expr
-    bc.EmitInstr(LabelManager.EntryLabel, Halt)
+
+    let entry, _ =
+        bc.AllocNamedChunk(LabelManager.EntryLabel)
+
+    genBytecodeImpl bc entry expr
+    bc.EmitInstr(entry, Halt)
     bc
 
 module VM =
@@ -197,23 +226,23 @@ module VM =
         | Bottom
         | Int of int
         | Closure of Closure
-        | ClosureRec of Closure * recName: Const
+        | ClosureRec of Closure * recName: ConstNum
 
     and Closure =
         { env: Env
-          var: Const
+          var: ConstNum
           code: CodePointer }
 
     and Env =
-        { cur: Map<Const, Value>
+        { cur: Map<ConstNum, Value>
           prev: Option<Env> }
 
     module Env =
         let empty = { cur = Map.empty; prev = None }
 
-        let tryFind (name: Const) (env: Env) : Option<Value> = Map.tryFind name env.cur
+        let tryFind (name: ConstNum) (env: Env) : Option<Value> = Map.tryFind name env.cur
 
-        let withBinding (name: Const) (value: Value) (env: Env) : Env =
+        let withBinding (name: ConstNum) (value: Value) (env: Env) : Env =
             let cur = Map.add name value env.cur
             { cur = cur; prev = Some env }
 
@@ -240,19 +269,21 @@ module VM =
 
         let mutable env: Env = Env.empty
 
-        //        let mutable code: ResizeArray<Instr> = ResizeArray()
-        let mutable labelId = 0
-        let mutable instrIdx = 0
+        let mutable code: ResizeArray<Instr> = ResizeArray()
+        let mutable codePointer: CodePointer = { chunk = 0; offset = 0 }
 
-        let returnStack: Stack<int * int * Env> = Stack()
+        let returnStack: Stack<CodePointer * Env> = Stack()
 
         member private this.RunLoop() =
             let mutable shouldHalt = false
 
-            while (instrIdx < bc.GetInstructions(labelId).Count)
+            while (codePointer.offset < code.Count)
                   && (not shouldHalt) do
-                let instr = bc.GetInstructions(labelId).[instrIdx]
-                instrIdx <- instrIdx + 1
+                let instr = code.[codePointer.offset]
+
+                codePointer <-
+                    { codePointer with
+                          offset = codePointer.offset + 1 }
 
                 match instr with
                 | Halt -> shouldHalt <- true
@@ -305,21 +336,22 @@ module VM =
                     let closureValue = stack.Pop() |> valueAsClosureExn
                     let closureRec = Value.ClosureRec(closureValue, nameId)
                     env <- Env.withBinding nameId closureRec env
-                | Jump codePointer ->
-                    labelId <- codePointer.label
-                    instrIdx <- codePointer.offset
+                | Jump label ->
+                    let newCode, newCodePointer = bc.GetInstructions(label)
+                    code <- newCode
+                    codePointer <- newCodePointer
                 | Branch (t, f) ->
                     let value = stack.Pop() |> valueAsIntExn
                     let target = if value <> 0 then t else f
 
-                    labelId <- target.label
-                    instrIdx <- target.offset
-                | MakeClosure (nameId, labelId) ->
+                    let newCode, newCodePointer = bc.GetInstructions(target)
+                    code <- newCode
+                    codePointer <- newCodePointer
+                | MakeClosure (var, label) ->
+                    let code = bc.getCodePointer label
+
                     let closure =
-                        Value.Closure
-                            { env = env
-                              var = nameId
-                              code = labelId }
+                        Value.Closure { env = env; var = var; code = code }
 
                     stack.Push(closure)
                 | Apply ->
@@ -338,23 +370,23 @@ module VM =
                             newEnv, closure.code
                         | other -> raise (InterpException(WrongType(other, "closure")))
 
-                    returnStack.Push(labelId, instrIdx, env)
+                    returnStack.Push(codePointer, env)
 
-                    labelId <- newCodePointer.label
-                    instrIdx <- newCodePointer.offset
+                    code <- bc.GetChunk(newCodePointer.chunk)
+                    codePointer <- newCodePointer
                     env <- newEnv
                 | Return ->
-                    let contLabelId, contInstrIdx, contEnv = returnStack.Pop()
-                    labelId <- contLabelId
-                    instrIdx <- contInstrIdx
+                    let contCodePointer, contEnv = returnStack.Pop()
+                    code <- bc.GetChunk(contCodePointer.chunk)
+                    codePointer <- contCodePointer
                     env <- contEnv
 
         member this.Execute() =
-            let mainLabelId =
-                bc.LabelManager.FindLabelId(LabelManager.EntryLabel)
+            let entryCode, entryCodePointer =
+                bc.GetInstructions(LabelManager.EntryLabel)
 
-            labelId <- mainLabelId
-            instrIdx <- 0
+            code <- entryCode
+            codePointer <- entryCodePointer
 
             this.RunLoop()
 
