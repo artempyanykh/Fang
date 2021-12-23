@@ -10,17 +10,27 @@ let main args =
     //    printfn "Minimal Eager ->"
 //    MinimalInterpreter.EvalEager.runExamples ()
 //
-//    printfn "With closure and let bindings ->"
-//    Interpreter.Ex.runExamples ()
+    printfn "With closure and let bindings ->"
+    Interpreter.Ex.runExamples ()
 
-    printfn "Bytecode interpreter ->"
-    Bytecode.Ex.eval Bytecode.Ex.ex1_AST
-    Bytecode.Ex.eval Bytecode.Ex.ex2_AST
-    Bytecode.Ex.eval Bytecode.Ex.ex3_AST
-    Bytecode.Ex.eval Bytecode.Ex.ex4_AST
-    Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 4)
-    Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 20)
-    Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 26)
-    Bytecode.Ex.eval (Bytecode.Ex.ex5_AST 30)
+    printfn "Symbolic bytecode interpreter ->"
+    SymbolicBytecode.Ex.eval Example.AST.arithmetic
+    SymbolicBytecode.Ex.eval Example.AST.arithmeticBinds
+    SymbolicBytecode.Ex.eval Example.AST.plus42
+    SymbolicBytecode.Ex.eval Example.AST.plusN
+    SymbolicBytecode.Ex.eval (Example.AST.fib 4)
+    SymbolicBytecode.Ex.eval (Example.AST.fib 20)
+    SymbolicBytecode.Ex.eval (Example.AST.fib 26)
+    SymbolicBytecode.Ex.eval (Example.AST.fib 30)
+    
+    printfn "Flat bytecode interpreter ->"
+    FlatBytecode.Ex.eval Example.AST.arithmetic
+    FlatBytecode.Ex.eval Example.AST.arithmeticBinds
+    FlatBytecode.Ex.eval Example.AST.plus42
+    FlatBytecode.Ex.eval Example.AST.plusN
+    FlatBytecode.Ex.eval (Example.AST.fib 4)
+    FlatBytecode.Ex.eval (Example.AST.fib 20)
+    FlatBytecode.Ex.eval (Example.AST.fib 26)
+    FlatBytecode.Ex.eval (Example.AST.fib 30)
 
     0

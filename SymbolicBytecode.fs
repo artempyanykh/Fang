@@ -1,4 +1,4 @@
-module Fang.Bytecode
+module Fang.SymbolicBytecode
 
 open System.Collections.Generic
 open Fang
@@ -33,8 +33,8 @@ type Instr =
     | Nop
     | Bottom
     | IntConst of int
-    | IntOp of IntOp
-    | IntCmp of IntCmp
+    | IntOperation of IntOp
+    | IntComparison of IntCmp
     | EnvLoad of name: ConstNum
     | EnvSave of name: ConstNum
     | EnvDrop of name: ConstNum
@@ -121,6 +121,8 @@ type SymbolicBytecode() =
 
     member this.GetChunk(chunk: Chunk) : ResizeArray<Instr> = chunks.[chunk]
 
+    member this.GetChunks() : ResizeArray<ResizeArray<Instr>> = chunks
+
     member this.GetInstructions(labelNum: LabelNum) : ResizeArray<Instr> * CodePointer =
         let contains, cp = labelMapping.TryGetValue(labelNum)
 
@@ -129,7 +131,7 @@ type SymbolicBytecode() =
 
         chunks.[cp.chunk], cp
 
-    member this.getCodePointer(labelNum: LabelNum) : CodePointer = labelMapping.[labelNum]
+    member this.GetCodePointer(labelNum: LabelNum) : CodePointer = labelMapping.[labelNum]
 
     member this.GetCurrentOffset(chunk: Chunk) : int = chunks.[chunk].Count
 
@@ -187,18 +189,18 @@ let rec genBytecodeImpl (bc: SymbolicBytecode) (chunk: Chunk) (expr: Expr) : uni
         genBytecodeImpl bc chunk opB
 
         match arithmeticFn with
-        | Add -> bc.EmitInstr(chunk, IntOp IntOp.Add)
-        | Sub -> bc.EmitInstr(chunk, IntOp IntOp.Sub)
-        | Mul -> bc.EmitInstr(chunk, IntOp IntOp.Mul)
-        | Div -> bc.EmitInstr(chunk, IntOp IntOp.Div)
+        | Add -> bc.EmitInstr(chunk, IntOperation IntOp.Add)
+        | Sub -> bc.EmitInstr(chunk, IntOperation IntOp.Sub)
+        | Mul -> bc.EmitInstr(chunk, IntOperation IntOp.Mul)
+        | Div -> bc.EmitInstr(chunk, IntOperation IntOp.Div)
     | Builtin (Comparison (comparisonFn, lhs, rhs)) ->
         genBytecodeImpl bc chunk lhs
         genBytecodeImpl bc chunk rhs
 
         match comparisonFn with
-        | Less -> bc.EmitInstr(chunk, IntCmp IntCmp.Less)
-        | Equal -> bc.EmitInstr(chunk, IntCmp IntCmp.Equal)
-        | Greater -> bc.EmitInstr(chunk, IntCmp IntCmp.Greater)
+        | Less -> bc.EmitInstr(chunk, IntComparison IntCmp.Less)
+        | Equal -> bc.EmitInstr(chunk, IntComparison IntCmp.Equal)
+        | Greater -> bc.EmitInstr(chunk, IntComparison IntCmp.Greater)
     | Bind (recursive, VarName var, body, expr) ->
         let varConst = bc.ConstPool.Add var
 
@@ -299,7 +301,7 @@ module SymbolicVM =
                 | Nop -> ()
                 | Bottom -> stack.Push(Value.Bottom)
                 | IntConst i -> stack.Push(Value.Int i)
-                | IntOp op ->
+                | IntOperation op ->
                     let arg2 = stack.Pop() |> valueAsIntExn
                     let arg1 = stack.Pop() |> valueAsIntExn
 
@@ -311,7 +313,7 @@ module SymbolicVM =
                         | IntOp.Div -> arg1 / arg2
 
                     stack.Push(Value.Int result)
-                | IntCmp op ->
+                | IntComparison op ->
                     let arg2 = stack.Pop() |> valueAsIntExn
                     let arg1 = stack.Pop() |> valueAsIntExn
 
@@ -358,7 +360,7 @@ module SymbolicVM =
                         code <- newCode
                         codePointer <- newCodePointer
                 | MakeClosure (var, label) ->
-                    let code = bc.getCodePointer label
+                    let code = bc.GetCodePointer label
 
                     let closure =
                         Value.Closure { env = env; var = var; code = code }
@@ -427,71 +429,3 @@ module Ex =
             printfn $"[{bcDur.TotalMilliseconds}/{exeDur.TotalMilliseconds}>> {value}"
         with
         | InterpException err -> printfn $"!! {err}"
-
-    let ex1_AST =
-        // 2 + 3 * 4
-        Builtin(
-            Arithmetic( //
-                Add,
-                Lit(BType.Int 2),
-                Builtin(
-                    Arithmetic( //
-                        Mul,
-                        Lit(BType.Int 3),
-                        Lit(BType.Int 4)
-                    )
-                )
-            )
-        )
-
-    let ex2_AST =
-        // let x = 2 + 3 * 4 in let y = 42 in x - y
-        Bind(
-            recursive = false,
-            var = VarName "x",
-            body = ex1_AST,
-            expr =
-                Bind(
-                    recursive = false,
-                    var = VarName "y",
-                    body = Lit(BType.Int 42),
-                    expr = Builtin(Arithmetic(Sub, Var(VarName "x"), Var(VarName "y")))
-                )
-        )
-
-    let ex3_AST =
-        Bind(
-            recursive = false,
-            var = VarName "plus42",
-            body = Lam(VarName "x", Builtin(Arithmetic(Add, Var(VarName "x"), Lit(BType.Int 42)))),
-            expr = App(Var(VarName "plus42"), Lit(BType.Int 3))
-        )
-
-    let ex4_AST =
-        Bind(
-            recursive = false,
-            var = VarName "plusN",
-            body = Lam(VarName "N", Lam(VarName "x", Builtin(Arithmetic(Add, Var(VarName "x"), Var(VarName "N"))))),
-            expr = App(App(Var(VarName "plusN"), Lit(BType.Int 3)), Lit(BType.Int 5))
-        )
-
-
-    let ex5_AST (num: int) =
-        let fib = VarName "fib"
-        let n = VarName "n"
-        let one = Lit(BType.Int 1)
-        let two = Lit(BType.Int 2)
-        let leqOne = Builtin(Comparison(Less, Var n, two))
-
-        let fn1 =
-            App(Var fib, Builtin(Arithmetic(Sub, Var n, one)))
-
-        let fn2 =
-            App(Var fib, Builtin(Arithmetic(Sub, Var n, two)))
-
-        Bind(
-            recursive = true,
-            var = fib,
-            body = Lam(n, Cond(leqOne, one, Builtin(Arithmetic(Add, fn1, fn2)))),
-            expr = App(Var fib, Lit(BType.Int num))
-        )

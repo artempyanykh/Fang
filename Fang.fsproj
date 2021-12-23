@@ -12,8 +12,10 @@
   <ItemGroup>
     <Compile Include="MinimalInterpreter.fs" />
     <Compile Include="Lang.fs" />
+    <Compile Include="Example.fs" />
     <Compile Include="Interpreter.fs" />
     <Compile Include="SymbolicBytecode.fs" />
+    <Compile Include="FlatBytecode.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
