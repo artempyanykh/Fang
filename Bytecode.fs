@@ -30,6 +30,7 @@ type CodePointer = { chunk: int; offset: int }
 
 type Instr =
     | Halt
+    | Nop
     | Bottom
     | IntConst of int
     | IntOp of IntOp
@@ -39,7 +40,7 @@ type Instr =
     | EnvDrop of name: ConstNum
     | EnvSaveRec of name: ConstNum
     | Jump of LabelNum
-    | Branch of trueBranch: LabelNum * falseBranch: LabelNum
+    | BranchTrue of LabelNum
     | MakeClosure of var: ConstNum * code: LabelNum
     | Apply
     | Return
@@ -154,25 +155,33 @@ let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
         bc.EmitInstr(chunk, Apply)
     | Cond (p, t, f) ->
         genBytecodeImpl bc chunk p
+        let contLabel = bc.LabelManager.GenNamedLabel("br_cont")
+        let tbLabel = bc.LabelManager.GenNamedLabel("br_tb")
 
-        let tbChunk, tbLabelNum = bc.AllocNamedChunk("bt")
+        bc.EmitInstr(chunk, BranchTrue tbLabel)
 
-        let fbChunk, fbLabelNum = bc.AllocNamedChunk("bf")
+        // Generate false branch first
+        genBytecodeImpl bc chunk f
+        // Fall-through to contLabel when done with the false branch
+        bc.EmitInstr(chunk, Jump contLabel)
 
-        bc.EmitInstr(chunk, Branch(tbLabelNum, fbLabelNum))
+        // Bind tbLabel and generate the true branch code
+        let tbPointer =
+            { chunk = chunk
+              offset = bc.GetCurrentOffset(chunk) }
 
+        bc.BindLabel(tbLabel, tbPointer)
+        genBytecodeImpl bc chunk t
+
+        // Bind the contLabel:
+        // * we jump to it from false branch,
+        // * there's a fall-through to it from true branch
         let contPointer =
             { chunk = chunk
               offset = bc.GetCurrentOffset(chunk) }
 
-        let contLabel = bc.LabelManager.GenNamedLabel("bcont")
         bc.BindLabel(contLabel, contPointer)
-
-        genBytecodeImpl bc tbChunk t
-        bc.EmitInstr(tbChunk, Jump contLabel)
-
-        genBytecodeImpl bc fbChunk f
-        bc.EmitInstr(fbChunk, Jump contLabel)
+        bc.EmitInstr(chunk, Nop)
     | Builtin (Arithmetic (arithmeticFn, opA, opB)) ->
         genBytecodeImpl bc chunk opA
         genBytecodeImpl bc chunk opB
@@ -287,6 +296,7 @@ module VM =
 
                 match instr with
                 | Halt -> shouldHalt <- true
+                | Nop -> ()
                 | Bottom -> stack.Push(Value.Bottom)
                 | IntConst i -> stack.Push(Value.Int i)
                 | IntOp op ->
@@ -340,13 +350,13 @@ module VM =
                     let newCode, newCodePointer = bc.GetInstructions(label)
                     code <- newCode
                     codePointer <- newCodePointer
-                | Branch (t, f) ->
+                | BranchTrue target ->
                     let value = stack.Pop() |> valueAsIntExn
-                    let target = if value <> 0 then t else f
 
-                    let newCode, newCodePointer = bc.GetInstructions(target)
-                    code <- newCode
-                    codePointer <- newCodePointer
+                    if value <> 0 then
+                        let newCode, newCodePointer = bc.GetInstructions(target)
+                        code <- newCode
+                        codePointer <- newCodePointer
                 | MakeClosure (var, label) ->
                     let code = bc.getCodePointer label
 
