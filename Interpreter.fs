@@ -80,16 +80,22 @@ let rec evalExn (env: Env) (expr: Expr) : Value =
         else
             Composite { env = env; expr = expr }
     | Builtin (Arithmetic (fn, a, b)) ->
-        let a = evalExn env a |> valueAsAtomicExn |> exprAsIntExn
-        let b = evalExn env b |> valueAsAtomicExn |> exprAsIntExn
+        let a =
+            evalExn env a |> valueAsAtomicExn |> exprAsIntExn
+
+        let b =
+            evalExn env b |> valueAsAtomicExn |> exprAsIntExn
 
         evalArithmetic fn a b
         |> BType.Int
         |> Lit
         |> Atomic
     | Builtin (Comparison (fn, l, r)) ->
-        let a = evalExn env l |> valueAsAtomicExn |> exprAsIntExn
-        let b = evalExn env r |> valueAsAtomicExn |> exprAsIntExn
+        let a =
+            evalExn env l |> valueAsAtomicExn |> exprAsIntExn
+
+        let b =
+            evalExn env r |> valueAsAtomicExn |> exprAsIntExn
 
         evalComparison fn a b
         |> BType.Int
@@ -129,7 +135,9 @@ let rec evalExn (env: Env) (expr: Expr) : Value =
         evalExn newEnv body
     | Cond (pred, t, f) ->
         let pred =
-            evalExn env pred |> valueAsAtomicExn |> exprAsIntExn
+            evalExn env pred
+            |> valueAsAtomicExn
+            |> exprAsIntExn
 
         if pred <> 0 then
             evalExn env t
@@ -137,81 +145,6 @@ let rec evalExn (env: Env) (expr: Expr) : Value =
             evalExn env f
 
 module Ex =
-    let id =
-        let x = VarName "x"
-        Lam(x, Var x)
-
-    let fixpoint =
-        let f = VarName "f"
-        let x = VarName "x"
-        let v = VarName "v"
-
-        let innerAbs =
-            Lam(x, App(expr = Var f, arg = Lam(v, body = App(expr = App(expr = Var x, arg = Var x), arg = Var v))))
-
-        Lam(f, body = App(expr = innerAbs, arg = innerAbs))
-
-    let factorialStep =
-        let f = VarName "f"
-        let n = VarName "n"
-        let isZero expr t f = Cond(expr, f, t)
-        let one = Lit(BType.Int 1)
-        let pred n = Builtin(Arithmetic(Sub, n, one))
-        let mul a b = Builtin(Arithmetic(Mul, a, b))
-
-        Lam(f, Lam(n, isZero (Var n) one (mul (Var n) (App(Var f, pred (Var n))))))
-
-    let factorial = App(fixpoint, factorialStep)
-
-    let fibStep =
-        let f = VarName "f"
-        let n = VarName "n"
-        let one = Lit(BType.Int 1)
-        let two = Lit(BType.Int 2)
-        let leqOne = Builtin(Comparison(Less, Var n, two))
-
-        let fn1 =
-            App(Var f, Builtin(Arithmetic(Sub, Var n, one)))
-
-        let fn2 =
-            App(Var f, Builtin(Arithmetic(Sub, Var n, two)))
-
-        Lam(f, Lam(n, Cond(leqOne, one, Builtin(Arithmetic(Add, fn1, fn2)))))
-
-    let fib = App(fixpoint, fibStep)
-
-    let withFibDirect cont =
-        let fib = VarName "fib"
-        let n = VarName "n"
-        let one = Lit(BType.Int 1)
-        let two = Lit(BType.Int 2)
-        let leqOne = Builtin(Comparison(Less, Var n, two))
-
-        let fn1 =
-            App(Var fib, Builtin(Arithmetic(Sub, Var n, one)))
-
-        let fn2 =
-            App(Var fib, Builtin(Arithmetic(Sub, Var n, two)))
-
-        Bind(
-            recursive = true,
-            var = fib,
-            body = Lam(n, Cond(leqOne, one, Builtin(Arithmetic(Add, fn1, fn2)))),
-            expr = cont
-        )
-
-    let ex1 n = App(id, Lit(BType.Int n))
-
-    let ex2 n =
-        let x = VarName "x"
-        App(App(id, Lam(x, Builtin(Arithmetic(Mul, Var x, Lit(BType.Int 2))))), Lit(BType.Int n))
-
-    let ex3 n = App(factorial, Lit(BType.Int n))
-
-    let ex4 n = App(fib, Lit(BType.Int n))
-
-    let ex5 n = withFibDirect (App(expr=Var (VarName "fib"), arg=Lit(BType.Int n)))
-
     let evalPrint expr =
         let start = System.DateTime.Now
 
@@ -219,21 +152,6 @@ module Ex =
             let expr = evalExn emptyEnv expr
             let finish = System.DateTime.Now
             let duration = finish - start
-            printfn $">> {expr} [{duration.TotalMilliseconds}ms]"
+            printfn $"[{duration.TotalMilliseconds}ms]>> {expr}"
         with
         | EvalException err -> printfn $"!! {err}"
-
-    let runExamples () =
-        printfn "Warmup examples"
-        evalPrint (ex1 42)
-        evalPrint (ex2 15)
-        evalPrint (ex3 10)
-        printfn "Fib via Y-combinator"
-        evalPrint (ex4 10)
-        evalPrint (ex4 20)
-        evalPrint (ex4 26)
-        printfn "Fib via direct encoding"
-        evalPrint (ex5 10)
-        evalPrint (ex5 20)
-        evalPrint (ex5 26)
-        evalPrint (ex5 30)

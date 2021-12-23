@@ -411,7 +411,7 @@ module SymbolicVM =
 open SymbolicVM
 
 module Ex =
-    let eval expr =
+    let evalPrint expr =
         let startTs = System.DateTime.Now
 
         let bc = genBytecode expr
@@ -426,6 +426,6 @@ module Ex =
 
             let bcDur = bcDoneTs - startTs
             let exeDur = finishTs - bcDoneTs
-            printfn $"[{bcDur.TotalMilliseconds}/{exeDur.TotalMilliseconds}>> {value}"
+            printfn $"[{bcDur.TotalMilliseconds}/{exeDur.TotalMilliseconds}ms]>> {value}"
         with
         | InterpException err -> printfn $"!! {err}"

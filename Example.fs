@@ -1,5 +1,7 @@
 module Fang.Example
 
+open Fang.Lang
+
 module AST =
     open Lang
     let arithmetic =
@@ -50,7 +52,7 @@ module AST =
         )
 
 
-    let fib (num: int) =
+    let fibDirect (num: int) =
         let fib = VarName "fib"
         let n = VarName "n"
         let one = Lit(BType.Int 1)
@@ -69,3 +71,30 @@ module AST =
             body = Lam(n, Cond(leqOne, one, Builtin(Arithmetic(Add, fn1, fn2)))),
             expr = App(Var fib, Lit(BType.Int num))
         )
+        
+    let fixpointOperator =
+        let f = VarName "f"
+        let x = VarName "x"
+        let v = VarName "v"
+
+        let innerAbs =
+            Lam(x, App(expr = Var f, arg = Lam(v, body = App(expr = App(expr = Var x, arg = Var x), arg = Var v))))
+
+        Lam(f, body = App(expr = innerAbs, arg = innerAbs))
+        
+    let fibStep =
+        let f = VarName "f"
+        let n = VarName "n"
+        let one = Lit(BType.Int 1)
+        let two = Lit(BType.Int 2)
+        let leqOne = Builtin(Comparison(Less, Var n, two))
+
+        let fn1 =
+            App(Var f, Builtin(Arithmetic(Sub, Var n, one)))
+
+        let fn2 =
+            App(Var f, Builtin(Arithmetic(Sub, Var n, two)))
+
+        Lam(f, Lam(n, Cond(leqOne, one, Builtin(Arithmetic(Add, fn1, fn2)))))
+
+    let fibFixpoint (n: int) = App(App(fixpointOperator, fibStep), (Lit(BType.Int n)))

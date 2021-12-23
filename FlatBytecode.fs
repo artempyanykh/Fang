@@ -421,7 +421,7 @@ module FlatVM =
 module Ex =
     open FlatVM
 
-    let eval expr =
+    let evalPrint expr =
         let startTs = DateTime.Now
 
         let bc = SB.genBytecode expr |> Bytecode.build
@@ -436,6 +436,6 @@ module Ex =
 
             let bcDur = bcDoneTs - startTs
             let exeDur = finishTs - bcDoneTs
-            printfn $"[{bcDur.TotalMilliseconds}/{exeDur.TotalMilliseconds}>> {value}"
+            printfn $"[{bcDur.TotalMilliseconds}/{exeDur.TotalMilliseconds}ms]>> {value}"
         with
         | InterpException err -> printfn $"!! {err}"

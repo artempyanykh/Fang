@@ -7,30 +7,28 @@
 
 [<EntryPoint>]
 let main args =
-    //    printfn "Minimal Eager ->"
-//    MinimalInterpreter.EvalEager.runExamples ()
-//
-    printfn "With closure and let bindings ->"
-    Interpreter.Ex.runExamples ()
+    let examples =
+        [ "arithmetic", Example.AST.arithmetic
+          "arithmeticBinds", Example.AST.arithmeticBinds
+          "plus42", Example.AST.plus42
+          "plusN", Example.AST.plusN
+          "fibDirect 4", (Example.AST.fibDirect 4)
+          "fibDirect 20", (Example.AST.fibDirect 20)
+          "fibDirect 26", (Example.AST.fibDirect 26)
+          "fibDirect 30", (Example.AST.fibDirect 30)
+          "fibFixpoint 10", (Example.AST.fibFixpoint 10)
+          "fibFixpoint 20", (Example.AST.fibFixpoint 20) ]
 
-    printfn "Symbolic bytecode interpreter ->"
-    SymbolicBytecode.Ex.eval Example.AST.arithmetic
-    SymbolicBytecode.Ex.eval Example.AST.arithmeticBinds
-    SymbolicBytecode.Ex.eval Example.AST.plus42
-    SymbolicBytecode.Ex.eval Example.AST.plusN
-    SymbolicBytecode.Ex.eval (Example.AST.fib 4)
-    SymbolicBytecode.Ex.eval (Example.AST.fib 20)
-    SymbolicBytecode.Ex.eval (Example.AST.fib 26)
-    SymbolicBytecode.Ex.eval (Example.AST.fib 30)
-    
-    printfn "Flat bytecode interpreter ->"
-    FlatBytecode.Ex.eval Example.AST.arithmetic
-    FlatBytecode.Ex.eval Example.AST.arithmeticBinds
-    FlatBytecode.Ex.eval Example.AST.plus42
-    FlatBytecode.Ex.eval Example.AST.plusN
-    FlatBytecode.Ex.eval (Example.AST.fib 4)
-    FlatBytecode.Ex.eval (Example.AST.fib 20)
-    FlatBytecode.Ex.eval (Example.AST.fib 26)
-    FlatBytecode.Ex.eval (Example.AST.fib 30)
+    let interpreters =
+        [ "Tree-based interpreter", Interpreter.Ex.evalPrint
+          "Symbolic Bytecode", SymbolicBytecode.Ex.evalPrint
+          "Flat Bytecode", FlatBytecode.Ex.evalPrint ]
+
+    for exampleName, example in examples do
+        printfn $"{exampleName}"
+
+        for interpreterName, interpreter in interpreters do
+            printfn $"{interpreterName}"
+            interpreter (example)
 
     0
