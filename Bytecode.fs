@@ -16,7 +16,12 @@ type IntCmp =
     | Equal
     | Greater
 
-type CodePointer = { labelId: int; offset: int }
+type Const = Const of int
+
+module Const =
+    let unwrap (Const inner) : int = inner
+
+type CodePointer = { label: int; offset: int }
 
 type Instr =
     | Halt
@@ -24,32 +29,32 @@ type Instr =
     | IntConst of int
     | IntOp of IntOp
     | IntCmp of IntCmp
-    | Access of nameId: int
-    | Save of nameId: int
-    | Drop of nameId: int
-    | SaveRec of nameId: int
+    | EnvLoad of name: Const
+    | EnvSave of name: Const
+    | EnvDrop of name: Const
+    | EnvSaveRec of name: Const
     | Jump of CodePointer
     | Branch of trueBranch: CodePointer * falseBranch: CodePointer
-    | MkClosure of nameId: int * labelId: int
+    | MakeClosure of var: Const * code: CodePointer
     | Apply
-    | Ret
+    | Return
 
 type ConstPool() =
-    let mapping: Dictionary<string, int> = Dictionary()
+    let mapping: Dictionary<string, Const> = Dictionary()
     let reverseMapping: ResizeArray<string> = ResizeArray()
 
-    member this.Add(value: string) : int =
+    member this.Add(value: string) : Const =
         if mapping.ContainsKey(value) then
             mapping.[value]
         else
-            let nextNum = mapping.Count
+            let nextNum = Const mapping.Count
             mapping.Add(value, nextNum)
             reverseMapping.Add(value)
             nextNum
 
-    member this.FindNum(value: string) = mapping.[value]
+    member this.FindNum(value: string) : Const = mapping.[value]
 
-    member this.FindName(num: int) : string = reverseMapping.[num]
+    member this.FindName(num: Const) : string = reverseMapping.[num |> Const.unwrap]
 
 type Label = string
 
@@ -109,16 +114,16 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
     | Lit BType.Unit -> bc.EmitInstr(initLabel, IntConst 0)
     | Var (VarName var) ->
         let constNum = bc.ConstPool.Add var
-        bc.EmitInstr(initLabel, Access constNum)
+        bc.EmitInstr(initLabel, EnvLoad constNum)
     | Lam (VarName var, body) ->
         let lamBodyLabel, lamBodyLabelNum =
             bc.LabelManager.GenScopedLabel(initLabel, "lam")
 
         genBytecodeImpl bc lamBodyLabel body
-        bc.EmitInstr(lamBodyLabel, Ret)
+        bc.EmitInstr(lamBodyLabel, Return)
 
         let varNum = bc.ConstPool.Add var
-        bc.EmitInstr(initLabel, MkClosure(varNum, lamBodyLabelNum))
+        bc.EmitInstr(initLabel, MakeClosure(varNum, { label = lamBodyLabelNum; offset = 0 }))
     | App (expr, arg) ->
         genBytecodeImpl bc initLabel arg
         genBytecodeImpl bc initLabel expr
@@ -132,10 +137,10 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
         let fbl, fblNum =
             bc.LabelManager.GenScopedLabel(initLabel, "fbl")
 
-        bc.EmitInstr(initLabel, Branch({ labelId = tblNum; offset = 0 }, { labelId = fblNum; offset = 0 }))
+        bc.EmitInstr(initLabel, Branch({ label = tblNum; offset = 0 }, { label = fblNum; offset = 0 }))
 
         let contPointer =
-            { labelId = bc.LabelManager.FindLabelId(initLabel)
+            { label = bc.LabelManager.FindLabelId(initLabel)
               offset = bc.GetCurrentOffset(initLabel) }
 
         genBytecodeImpl bc tbl t
@@ -165,19 +170,19 @@ let rec genBytecodeImpl (bc: Bytecode) (initLabel: Label) (expr: Expr) : unit =
 
         if recursive then
             bc.EmitInstr(initLabel, Bottom)
-            bc.EmitInstr(initLabel, Save varConst)
+            bc.EmitInstr(initLabel, EnvSave varConst)
 
             genBytecodeImpl bc initLabel body
-            bc.EmitInstr(initLabel, Drop varConst)
-            bc.EmitInstr(initLabel, SaveRec varConst)
+            bc.EmitInstr(initLabel, EnvDrop varConst)
+            bc.EmitInstr(initLabel, EnvSaveRec varConst)
 
             genBytecodeImpl bc initLabel expr
-            bc.EmitInstr(initLabel, Drop varConst)
+            bc.EmitInstr(initLabel, EnvDrop varConst)
         else
             genBytecodeImpl bc initLabel body
-            bc.EmitInstr(initLabel, Save varConst)
+            bc.EmitInstr(initLabel, EnvSave varConst)
             genBytecodeImpl bc initLabel expr
-            bc.EmitInstr(initLabel, Drop varConst)
+            bc.EmitInstr(initLabel, EnvDrop varConst)
 
 let genBytecode (expr: Expr) : Bytecode =
     let bc = Bytecode()
@@ -192,21 +197,25 @@ module VM =
         | Bottom
         | Int of int
         | Closure of Closure
-        | ClosureRec of Closure * recNameId: int
+        | ClosureRec of Closure * recName: Const
 
-    and Closure = { env: Env; varId: int; labelId: int }
+    and Closure =
+        { env: Env
+          var: Const
+          code: CodePointer }
 
     and Env =
-        { cur: Map<int, Value>
+        { cur: Map<Const, Value>
           prev: Option<Env> }
 
-    let envEmpty = { cur = Map.empty; prev = None }
+    module Env =
+        let empty = { cur = Map.empty; prev = None }
 
-    let envTryFind (constId: int) (env: Env) : Option<Value> = Map.tryFind constId env.cur
+        let tryFind (name: Const) (env: Env) : Option<Value> = Map.tryFind name env.cur
 
-    let envWithBind (constId: int) (value: Value) (env: Env) : Env =
-        let cur = Map.add constId value env.cur
-        { cur = cur; prev = Some env }
+        let withBinding (name: Const) (value: Value) (env: Env) : Env =
+            let cur = Map.add name value env.cur
+            { cur = cur; prev = Some env }
 
     type InterpError =
         | WrongType of Value * expected: string
@@ -229,7 +238,7 @@ module VM =
     type VM(bc: Bytecode) =
         let stack: Stack<Value> = Stack()
 
-        let mutable env: Env = envEmpty
+        let mutable env: Env = Env.empty
 
         //        let mutable code: ResizeArray<Instr> = ResizeArray()
         let mutable labelId = 0
@@ -272,17 +281,17 @@ module VM =
                         | IntCmp.Greater -> if arg1 > arg2 then 1 else 0
 
                     stack.Push(Value.Int result)
-                | Access nameId ->
-                    match envTryFind nameId env with
+                | EnvLoad name ->
+                    match Env.tryFind name env with
                     | Some v ->
                         match v with
-                        | Value.Bottom -> raise (InterpException(AccessUneval(bc.ConstPool.FindName(nameId))))
+                        | Value.Bottom -> raise (InterpException(AccessUneval(bc.ConstPool.FindName(name))))
                         | _ -> stack.Push(v)
-                    | None -> raise (InterpException(UnboundVar(bc.ConstPool.FindName(nameId))))
-                | Save nameId ->
+                    | None -> raise (InterpException(UnboundVar(bc.ConstPool.FindName(name))))
+                | EnvSave name ->
                     let value = stack.Pop()
-                    env <- envWithBind nameId value env
-                | Drop nameId ->
+                    env <- Env.withBinding name value env
+                | EnvDrop nameId ->
                     match env.prev with
                     | Some prev -> env <- prev
                     | _ ->
@@ -291,50 +300,50 @@ module VM =
                                 Internal $"Env violation: drop {bc.ConstPool.FindName(nameId)} with empty previous env"
                             )
                         )
-                | SaveRec nameId ->
+                | EnvSaveRec nameId ->
                     // TODO: need to handle ClosureRec too?
                     let closureValue = stack.Pop() |> valueAsClosureExn
                     let closureRec = Value.ClosureRec(closureValue, nameId)
-                    env <- envWithBind nameId closureRec env
+                    env <- Env.withBinding nameId closureRec env
                 | Jump codePointer ->
-                    labelId <- codePointer.labelId
+                    labelId <- codePointer.label
                     instrIdx <- codePointer.offset
                 | Branch (t, f) ->
                     let value = stack.Pop() |> valueAsIntExn
                     let target = if value <> 0 then t else f
 
-                    labelId <- target.labelId
+                    labelId <- target.label
                     instrIdx <- target.offset
-                | MkClosure (nameId, labelId) ->
+                | MakeClosure (nameId, labelId) ->
                     let closure =
                         Value.Closure
                             { env = env
-                              varId = nameId
-                              labelId = labelId }
+                              var = nameId
+                              code = labelId }
 
                     stack.Push(closure)
                 | Apply ->
                     let potentialClosure = stack.Pop()
                     let arg = stack.Pop()
 
-                    let newEnv, newLabelId =
+                    let newEnv, newCodePointer =
                         match potentialClosure with
-                        | Value.Closure closure -> envWithBind closure.varId arg closure.env, closure.labelId
+                        | Value.Closure closure -> Env.withBinding closure.var arg closure.env, closure.code
                         | Value.ClosureRec (closure, recNameId) ->
                             let newEnv =
                                 closure.env
-                                |> envWithBind closure.varId arg
-                                |> envWithBind recNameId potentialClosure
+                                |> Env.withBinding closure.var arg
+                                |> Env.withBinding recNameId potentialClosure
 
-                            newEnv, closure.labelId
+                            newEnv, closure.code
                         | other -> raise (InterpException(WrongType(other, "closure")))
 
                     returnStack.Push(labelId, instrIdx, env)
 
-                    labelId <- newLabelId
-                    instrIdx <- 0
+                    labelId <- newCodePointer.label
+                    instrIdx <- newCodePointer.offset
                     env <- newEnv
-                | Ret ->
+                | Return ->
                     let contLabelId, contInstrIdx, contEnv = returnStack.Pop()
                     labelId <- contLabelId
                     instrIdx <- contInstrIdx

@@ -10,8 +10,8 @@ let main args =
     //    printfn "Minimal Eager ->"
 //    MinimalInterpreter.EvalEager.runExamples ()
 //
-    printfn "With closure and let bindings ->"
-    Interpreter.Ex.runExamples ()
+//    printfn "With closure and let bindings ->"
+//    Interpreter.Ex.runExamples ()
 
     printfn "Bytecode interpreter ->"
     Bytecode.Ex.eval Bytecode.Ex.ex1_AST
