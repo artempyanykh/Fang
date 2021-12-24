@@ -21,7 +21,7 @@ let main args =
           "fibFixpoint 26", (Example.AST.fibFixpoint 26) ]
 
     let interpreters =
-        [ "Tree-based interpreter", Interpreter.Ex.evalPrint
+        [ "Tree-based interpreter", TreeInterpreter.Ex.evalPrint
           "Chunked Bytecode", ChunkedBytecode.Ex.evalPrint
           "Flat Bytecode", FlatBytecode.Ex.evalPrint ]
 
