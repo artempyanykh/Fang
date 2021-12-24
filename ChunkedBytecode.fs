@@ -282,7 +282,7 @@ module ChunkedVM =
         let mutable code: ResizeArray<Instr> = ResizeArray()
         let mutable codePointer: CodePointer = { chunk = 0; offset = 0 }
 
-        let returnStack: Stack<CodePointer * Env> = Stack()
+        let returnStack: Stack<struct(CodePointer * Env)> = Stack()
 
         member private this.RunLoop() =
             let mutable shouldHalt = false
@@ -375,7 +375,7 @@ module ChunkedVM =
                         code <- bc.GetChunk(closure.code.chunk)
                     | other -> raise (InterpException(WrongType(other, "closure")))
                 | Return ->
-                    let contCodePointer, contEnv = returnStack.Pop()
+                    let struct (contCodePointer, contEnv) = returnStack.Pop()
                     code <- bc.GetChunk(contCodePointer.chunk)
                     codePointer <- contCodePointer
                     env <- contEnv

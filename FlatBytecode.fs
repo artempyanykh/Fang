@@ -268,7 +268,7 @@ module FlatVM =
         let envStack: Stack<Env> = Stack()
 
         let mutable codePointer: CodePointer = bc.entry
-        let returnStack: Stack<CodePointer * Env> = Stack()
+        let returnStack: Stack<struct(CodePointer * Env)> = Stack()
 
         member private this.RunLoop() =
             let mutable shouldHalt = false
@@ -401,7 +401,7 @@ module FlatVM =
                         codePointer <- closure.code
                     | other -> raise (InterpException(WrongType(other, "closure")))
                 | OpCodeNum.Return ->
-                    let contCodePointer, contEnv = returnStack.Pop()
+                    let struct (contCodePointer, contEnv) = returnStack.Pop()
                     codePointer <- contCodePointer
                     env <- contEnv
                 | other -> raise (InterpException(Internal $"Unknown opcode: {other}"))
