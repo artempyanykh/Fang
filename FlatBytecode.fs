@@ -98,10 +98,10 @@ module BytecodeElement =
                 | SB.IntCmp.Greater -> OpCodeNum.IntGreater
 
             [ OpCode code ]
-        | SB.Instr.EnvLoad (ConstNum i) -> [ OpCode OpCodeNum.EnvLoad; ImmInt i ]
-        | SB.Instr.EnvSave (ConstNum i) -> [ OpCode OpCodeNum.EnvSave; ImmInt i ]
-        | SB.Instr.EnvDrop (ConstNum i) -> [ OpCode OpCodeNum.EnvDrop; ImmInt i ]
-        | SB.Instr.EnvSaveRec (ConstNum i) ->
+        | SB.Instr.EnvLoad i -> [ OpCode OpCodeNum.EnvLoad; ImmInt i ]
+        | SB.Instr.EnvSave i -> [ OpCode OpCodeNum.EnvSave; ImmInt i ]
+        | SB.Instr.EnvDrop i -> [ OpCode OpCodeNum.EnvDrop; ImmInt i ]
+        | SB.Instr.EnvSaveRec i ->
             [ OpCode OpCodeNum.EnvSaveRec
               ImmInt i ]
         | SB.Instr.Jump target ->
@@ -110,7 +110,7 @@ module BytecodeElement =
         | SB.Instr.BranchTrue target ->
             [ OpCode OpCodeNum.BranchTrue
               UnresolvedJumpTarget target ]
-        | SB.Instr.MakeClosure (ConstNum i, code) ->
+        | SB.Instr.MakeClosure (i, code) ->
             [ OpCode OpCodeNum.MakeClosure
               ImmInt i
               UnresolvedJumpTarget code ]
@@ -134,18 +134,20 @@ module BytecodeElement =
         bytes
 
     let deserializeInt (source: array<byte>, start: int) : int =
-        let bytes = source.[start..start + 3]
 
-        if not BitConverter.IsLittleEndian then
+        if BitConverter.IsLittleEndian then
+            BitConverter.ToInt32(source, start)
+        else
+            let bytes = source.[start..start + 3]
             Array.Reverse(bytes)
+            BitConverter.ToInt32(bytes)
 
-        BitConverter.ToInt32(bytes)
 
     let bytes (el: BytecodeElement) : seq<byte> =
         match el with
         | OpCode c -> [ byte c ]
-        | ImmInt i -> serializeInt (i)
-        | JumpTarget codePointer -> serializeInt (codePointer)
+        | ImmInt i -> serializeInt i
+        | JumpTarget codePointer -> serializeInt codePointer
         | UnresolvedJumpTarget labelNum -> failwith $"Unresolved jump target cannot be converted: {labelNum}"
 
 
@@ -233,27 +235,28 @@ module FlatVM =
         | UnboundVar of name: string
         | AccessUneval of name: string
         | Internal of msg: string
+        | Halt
 
     exception InterpException of InterpError
 
     module Env =
         let empty = Map.empty
 
-        let find (name: ConstNum) (env: Env) : Value =
+        let inline find (name: ConstNum) (env: Env) : Value =
             try
                 Map.find name env
             with
             | :? System.Collections.Generic.KeyNotFoundException -> raise (InterpException(UnboundVar($"#{name}")))
 
-        let withBinding (name: ConstNum) (value: Value) (env: Env) : Env = Map.add name value env
+        let inline withBinding (name: ConstNum) (value: Value) (env: Env) : Env = Map.add name value env
 
-    let valueAsIntExn =
-        function
+    let valueAsIntExn (v: Value) =
+        match v with
         | Value.Int i -> i
         | other -> raise (InterpException(WrongType(other, "int")))
 
-    let valueAsClosureExn =
-        function
+    let valueAsClosureExn (v: Value) =
+        match v with
         | Value.Closure c -> c
         | other -> raise (InterpException(WrongType(other, "closure")))
 
@@ -334,9 +337,8 @@ module FlatVM =
                     envStack.Push(env)
                     env <- Env.withBinding name value env
                 | OpCodeNum.EnvDrop ->
-                    let name =
-                        BytecodeElement.deserializeInt (bc.code, codePointer)
-
+                    // We don't need the name in the current implementation
+                    // so let's just skip to the next instruction
                     codePointer <- codePointer + 4
 
                     env <- envStack.Pop()

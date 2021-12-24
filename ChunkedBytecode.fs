@@ -16,12 +16,7 @@ type IntCmp =
     | Equal
     | Greater
 
-[<Struct>]
-type ConstNum = ConstNum of int
-
-module ConstNum =
-    let unwrap (ConstNum inner) : int = inner
-
+type ConstNum = int
 
 type Label = string
 type LabelNum = int
@@ -54,14 +49,14 @@ type ConstPool() =
         if mapping.ContainsKey(value) then
             mapping.[value]
         else
-            let nextNum = ConstNum mapping.Count
+            let nextNum = mapping.Count
             mapping.Add(value, nextNum)
             reverseMapping.Add(value)
             nextNum
 
     member this.FindNum(value: string) : ConstNum = mapping.[value]
 
-    member this.FindName(num: ConstNum) : string = reverseMapping.[num |> ConstNum.unwrap]
+    member this.FindName(num: ConstNum) : string = reverseMapping.[num]
 
 
 type LabelManager() =
@@ -259,13 +254,13 @@ module ChunkedVM =
     module Env =
         let empty = Map.empty
 
-        let find (name: ConstNum) (env: Env) : Value =
+        let inline find (name: ConstNum) (env: Env) : Value =
             try
                 Map.find name env
             with
             | :? KeyNotFoundException -> raise (InterpException(UnboundVar($"#{name}")))
 
-        let withBinding (name: ConstNum) (value: Value) (env: Env) : Env = Map.add name value env
+        let inline withBinding (name: ConstNum) (value: Value) (env: Env) : Env = Map.add name value env
 
 
     let valueAsIntExn =
@@ -336,8 +331,7 @@ module ChunkedVM =
                     let value = stack.Pop()
                     envStack.Push(env)
                     env <- Env.withBinding name value env
-                | EnvDrop nameId ->
-                    env <- envStack.Pop()
+                | EnvDrop _ -> env <- envStack.Pop()
                 | EnvSaveRec nameId ->
                     // TODO: need to handle ClosureRec too?
                     let closureValue = stack.Pop() |> valueAsClosureExn
@@ -413,7 +407,7 @@ module Ex =
         let bc = genBytecode expr
         let bcDoneTs = System.DateTime.Now
 
-        let vm = ChunkedVM.VM(bc)
+        let vm = VM(bc)
 
         try
             vm.Execute()
