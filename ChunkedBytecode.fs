@@ -359,24 +359,21 @@ module ChunkedVM =
                 | Apply ->
                     let potentialClosure = stack.Pop()
                     let arg = stack.Pop()
-
-                    let newEnv, newCodePointer =
-                        match potentialClosure with
-                        | Value.Closure closure -> Env.withBinding closure.var arg closure.env, closure.code
-                        | Value.ClosureRec (closure, recNameId) ->
-                            let newEnv =
-                                closure.env
-                                |> Env.withBinding closure.var arg
-                                |> Env.withBinding recNameId potentialClosure
-
-                            newEnv, closure.code
-                        | other -> raise (InterpException(WrongType(other, "closure")))
-
                     returnStack.Push(codePointer, env)
 
-                    code <- bc.GetChunk(newCodePointer.chunk)
-                    codePointer <- newCodePointer
-                    env <- newEnv
+                    match potentialClosure with
+                    | Value.Closure closure -> 
+                        env <- Env.withBinding closure.var arg closure.env
+                        codePointer <- closure.code
+                        code <- bc.GetChunk(closure.code.chunk)
+                    | Value.ClosureRec (closure, recNameId) ->
+                        env <-
+                            closure.env
+                            |> Env.withBinding closure.var arg
+                            |> Env.withBinding recNameId potentialClosure
+                        codePointer <- closure.code
+                        code <- bc.GetChunk(closure.code.chunk)
+                    | other -> raise (InterpException(WrongType(other, "closure")))
                 | Return ->
                     let contCodePointer, contEnv = returnStack.Pop()
                     code <- bc.GetChunk(contCodePointer.chunk)
