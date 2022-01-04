@@ -1,6 +1,9 @@
 module Fang.Lang
 
-type VarName = VarName of string
+type VarName = string
+
+module VarName =
+    let make (name: string) = name
 
 [<RequireQualifiedAccess>]
 type BType =
@@ -25,7 +28,7 @@ type BuiltinFn =
 and Expr =
     | Lit of BType
     | Var of VarName
-    | Lam of var: VarName * body: Expr
+    | Abs of var: VarName * body: Expr
     | App of expr: Expr * arg: Expr
     | Cond of pred: Expr * trueBranch: Expr * falseBranch: Expr
     | Bind of recursive: bool * var: VarName * body: Expr * expr: Expr

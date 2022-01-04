@@ -220,11 +220,10 @@ module FlatVM =
     type Value =
         | Bottom
         | Int of intVal: int
-        | Closure of regClosure: Closure
-        | ClosureRec of recClosure: Closure * recVar: ConstNum
+        | Closure of closureVal: Closure
 
     and Closure =
-        { env: Env
+        { mutable env: Env
           var: ConstNum
           code: CodePointer }
 
@@ -235,7 +234,6 @@ module FlatVM =
         | UnboundVar of name: string
         | AccessUneval of name: string
         | Internal of msg: string
-        | Halt
 
     exception InterpException of InterpError
 
@@ -268,7 +266,7 @@ module FlatVM =
         let envStack: Stack<Env> = Stack()
 
         let mutable codePointer: CodePointer = bc.entry
-        let returnStack: Stack<struct(CodePointer * Env)> = Stack()
+        let returnStack: Stack<struct (CodePointer * Env)> = Stack()
 
         member private this.RunLoop() =
             let mutable shouldHalt = false
@@ -348,12 +346,14 @@ module FlatVM =
 
                     codePointer <- codePointer + 4
 
-                    // TODO: need to handle ClosureRec too?
-                    let closureValue = stack.Pop() |> valueAsClosureExn
-                    let closureRec = Value.ClosureRec(closureValue, name)
+                    let v = stack.Pop()
+                    // Patch the closure env
+                    let closure = v |> valueAsClosureExn
+                    let closureEnv = Env.withBinding name v closure.env
+                    closure.env <- closureEnv
 
                     envStack.Push(env)
-                    env <- Env.withBinding name closureRec env
+                    env <- Env.withBinding name v env
                 | OpCodeNum.Jump ->
                     let target =
                         BytecodeElement.deserializeInt (bc.code, codePointer)
@@ -385,21 +385,12 @@ module FlatVM =
 
                     stack.Push(closure)
                 | OpCodeNum.Apply ->
-                    let potentialClosure = stack.Pop()
+                    let closure = stack.Pop() |> valueAsClosureExn
                     let arg = stack.Pop()
                     returnStack.Push(codePointer, env)
 
-                    match potentialClosure with
-                    | Value.Closure closure -> 
-                        env <- Env.withBinding closure.var arg closure.env
-                        codePointer <- closure.code
-                    | Value.ClosureRec (closure, recNameId) ->
-                        env <- 
-                            closure.env
-                            |> Env.withBinding closure.var arg
-                            |> Env.withBinding recNameId potentialClosure
-                        codePointer <- closure.code
-                    | other -> raise (InterpException(WrongType(other, "closure")))
+                    env <- Env.withBinding closure.var arg closure.env
+                    codePointer <- closure.code
                 | OpCodeNum.Return ->
                     let struct (contCodePointer, contEnv) = returnStack.Pop()
                     codePointer <- contCodePointer

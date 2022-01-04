@@ -33,8 +33,8 @@ type Instr =
     | IntComparison of IntCmp
     | EnvLoad of name: ConstNum
     | EnvSave of name: ConstNum
-    | EnvDrop of name: ConstNum
     | EnvSaveRec of name: ConstNum
+    | EnvDrop of name: ConstNum
     | Jump of LabelNum
     | BranchTrue of LabelNum
     | MakeClosure of var: ConstNum * code: LabelNum
@@ -136,10 +136,10 @@ let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
     match expr with
     | Lit (BType.Int v) -> bc.EmitInstr(chunk, IntConst v)
     | Lit BType.Unit -> bc.EmitInstr(chunk, IntConst 0)
-    | Var (VarName var) ->
+    | Var var ->
         let constNum = bc.ConstPool.Add var
         bc.EmitInstr(chunk, EnvLoad constNum)
-    | Lam (VarName var, body) ->
+    | Abs (var, body) ->
         let lamBodyChunk, lamBodyLabelNum = bc.AllocNamedChunk("l")
 
         genBytecodeImpl bc lamBodyChunk body
@@ -197,7 +197,7 @@ let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
         | Less -> bc.EmitInstr(chunk, IntComparison IntCmp.Less)
         | Equal -> bc.EmitInstr(chunk, IntComparison IntCmp.Equal)
         | Greater -> bc.EmitInstr(chunk, IntComparison IntCmp.Greater)
-    | Bind (recursive, VarName var, body, expr) ->
+    | Bind (recursive, var, body, expr) ->
         let varConst = bc.ConstPool.Add var
 
         if recursive then
@@ -234,10 +234,9 @@ module ChunkedVM =
         | Bottom
         | Int of intVal: int
         | Closure of regularClosure: Closure
-        | ClosureRec of recClosure: Closure * recVar: ConstNum
 
     and Closure =
-        { env: Env
+        { mutable env: Env
           var: ConstNum
           code: CodePointer }
 
@@ -282,7 +281,7 @@ module ChunkedVM =
         let mutable code: ResizeArray<Instr> = ResizeArray()
         let mutable codePointer: CodePointer = { chunk = 0; offset = 0 }
 
-        let returnStack: Stack<struct(CodePointer * Env)> = Stack()
+        let returnStack: Stack<struct (CodePointer * Env)> = Stack()
 
         member private this.RunLoop() =
             let mutable shouldHalt = false
@@ -333,11 +332,14 @@ module ChunkedVM =
                     env <- Env.withBinding name value env
                 | EnvDrop _ -> env <- envStack.Pop()
                 | EnvSaveRec nameId ->
-                    // TODO: need to handle ClosureRec too?
-                    let closureValue = stack.Pop() |> valueAsClosureExn
-                    let closureRec = Value.ClosureRec(closureValue, nameId)
+                    let value = stack.Pop()
+                    // Patch the closure env
+                    let closure = value |> valueAsClosureExn
+                    let closureEnv = Env.withBinding nameId value closure.env
+                    closure.env <- closureEnv
+                    
                     envStack.Push(env)
-                    env <- Env.withBinding nameId closureRec env
+                    env <- Env.withBinding nameId value env
                 | Jump label ->
                     let newCode, newCodePointer = bc.GetInstructions(label)
                     code <- newCode
@@ -357,23 +359,13 @@ module ChunkedVM =
 
                     stack.Push(closure)
                 | Apply ->
-                    let potentialClosure = stack.Pop()
+                    let closure = stack.Pop() |> valueAsClosureExn
                     let arg = stack.Pop()
                     returnStack.Push(codePointer, env)
 
-                    match potentialClosure with
-                    | Value.Closure closure -> 
-                        env <- Env.withBinding closure.var arg closure.env
-                        codePointer <- closure.code
-                        code <- bc.GetChunk(closure.code.chunk)
-                    | Value.ClosureRec (closure, recNameId) ->
-                        env <-
-                            closure.env
-                            |> Env.withBinding closure.var arg
-                            |> Env.withBinding recNameId potentialClosure
-                        codePointer <- closure.code
-                        code <- bc.GetChunk(closure.code.chunk)
-                    | other -> raise (InterpException(WrongType(other, "closure")))
+                    env <- Env.withBinding closure.var arg closure.env
+                    codePointer <- closure.code
+                    code <- bc.GetChunk(closure.code.chunk)
                 | Return ->
                     let struct (contCodePointer, contEnv) = returnStack.Pop()
                     code <- bc.GetChunk(contCodePointer.chunk)

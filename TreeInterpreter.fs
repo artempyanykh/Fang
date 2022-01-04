@@ -2,39 +2,32 @@ module Fang.TreeInterpreter
 
 open Fang.Lang
 
-type Env = Env of Map<VarName, Closure>
-and Closure = { env: Env; expr: Expr }
+type Env = Map<VarName, Value>
 
-and Value =
-    | Atomic of Expr
-    | Composite of Closure
+and Closure =
+    { mutable env: Env
+      var: VarName
+      body: Expr }
 
-let emptyEnv = Env Map.empty
 
-let isEmptyEnv (Env e) = Map.isEmpty e
+and [<Struct>] Value =
+    | Int of intVal:int
+    | Closure of closureVal:Closure
+    | BlackHole
 
-let lookupVar (var: VarName) (Env e) = Map.tryFind var e
+module Env =
+    let empty = Map.empty
 
-let addToEnv var closure (Env env) = Env(Map.add var closure env)
+    let inline isEmpty e = Map.isEmpty e
 
-let combineEnvs (Env high) (Env low) =
-    if Map.isEmpty high then
-        (Env low)
-    else if Map.isEmpty low then
-        (Env high)
-    else
-        let mutable newMap = low
+    let inline lookupVar (var: VarName) (e: Env) = Map.tryFind var e
 
-        for entry in high do
-            newMap <- Map.add entry.Key entry.Value newMap
-
-        Env newMap
+    let inline add var closure (e: Env) = Map.add var closure e
 
 type EvalError =
     | UnboundName of VarName
-    | WrongType of Expr * expectedType: string
     | WrongValue of Value * expectedKind: string
-    | Todo of Expr
+    | InfiniteRecBinding of VarName
 
 exception EvalException of EvalError
 
@@ -51,105 +44,79 @@ let evalComparison fn l r =
     | Greater -> if l > r then 1 else 0
     | Equal -> if l = r then 1 else 0
 
-let exprAsIntExn expr =
-    match expr with
-    | Lit (BType.Int intVal) -> intVal
-    | _ -> raise (EvalException(WrongType(expr, "int")))
-
-let exprAsLambdaExn expr =
-    match expr with
-    | Lam (var, body) -> (var, body)
-    | expr -> raise (EvalException(WrongType(expr, "lambda")))
-
-
-let valueAsAtomicExn =
+let valueAsInt =
     function
-    | Atomic expr -> expr
-    | Composite _ as value -> raise (EvalException(WrongValue(value, "atomic")))
+    | Int expr -> expr
+    | other -> raise (EvalException(WrongValue(other, "int")))
 
-let rec evalExn (env: Env) (expr: Expr) : Value =
+let valueAsClosure =
+    function
+    | Closure c -> c
+    | other -> raise (EvalException(WrongValue(other, "closure")))
+
+let checkBlackHole var =
+    function
+    | BlackHole -> raise (EvalException(InfiniteRecBinding var))
+    | other -> other
+
+let rec eval (env: Env) (expr: Expr) : Value =
     match expr with
-    | Lit _ -> Atomic expr
+    | Lit BType.Unit -> Value.Int 0
+    | Lit (BType.Int i) -> Value.Int i
     | Var var ->
-        lookupVar var env
-        |> Option.map (fun x -> evalExn x.env x.expr)
+        Env.lookupVar var env
+        |> Option.map (checkBlackHole var)
         |> Option.defaultWith (fun () -> raise (EvalException(UnboundName var)))
-    | Lam _ ->
-        if isEmptyEnv env then
-            Atomic expr
-        else
-            Composite { env = env; expr = expr }
+    | Abs (var, body) -> Closure { env = env; var = var; body = body }
     | Builtin (Arithmetic (fn, a, b)) ->
-        let a =
-            evalExn env a |> valueAsAtomicExn |> exprAsIntExn
+        let a = eval env a |> valueAsInt
+        let b = eval env b |> valueAsInt
 
-        let b =
-            evalExn env b |> valueAsAtomicExn |> exprAsIntExn
-
-        evalArithmetic fn a b
-        |> BType.Int
-        |> Lit
-        |> Atomic
+        Value.Int (evalArithmetic fn a b)
     | Builtin (Comparison (fn, l, r)) ->
-        let a =
-            evalExn env l |> valueAsAtomicExn |> exprAsIntExn
+        let a = eval env l |> valueAsInt
+        let b = eval env r |> valueAsInt
 
-        let b =
-            evalExn env r |> valueAsAtomicExn |> exprAsIntExn
-
-        evalComparison fn a b
-        |> BType.Int
-        |> Lit
-        |> Atomic
+        Value.Int (evalComparison fn a b)
     | Bind (recursive, var, body, expr) ->
         let bodyEnv =
             if recursive then
-                addToEnv var { env = env; expr = body } env
+                Env.add var Value.BlackHole env
             else
                 env
 
-        let evalBody = evalExn bodyEnv body
+        let bodyVal =
+            match eval bodyEnv body with
+            | Closure c as v ->
+                let closedEnv = Env.add var v env
+                c.env <- closedEnv
+                v
+            | other -> other
 
-        let exprEnv =
-            match evalBody with
-            | Composite closure -> addToEnv var closure env
-            | Atomic expr -> addToEnv var { env = emptyEnv; expr = expr } env
 
-        evalExn exprEnv expr
+        let exprEnv = Env.add var bodyVal env
+
+        eval exprEnv expr
     | App (expr, arg) ->
-        let arg =
-            match evalExn env arg with
-            | Atomic atomicExpr -> { env = emptyEnv; expr = atomicExpr }
-            | Composite closure -> closure
+        let arg = eval env arg
+        let closure = eval env expr |> valueAsClosure
+        let appEnv = Env.add closure.var arg closure.env
 
-        let closedEnv, closedExpr =
-            match evalExn env expr with
-            | Atomic atomicExpr -> emptyEnv, atomicExpr
-            | Composite { env = env; expr = expr } -> env, expr
-
-        let var, body = closedExpr |> exprAsLambdaExn
-
-        let newEnv =
-            addToEnv var arg (combineEnvs closedEnv env)
-
-        evalExn newEnv body
+        eval appEnv closure.body
     | Cond (pred, t, f) ->
-        let pred =
-            evalExn env pred
-            |> valueAsAtomicExn
-            |> exprAsIntExn
+        let pred = eval env pred |> valueAsInt
 
         if pred <> 0 then
-            evalExn env t
+            eval env t
         else
-            evalExn env f
+            eval env f
 
 module Ex =
     let evalPrint expr =
         let start = System.DateTime.Now
 
         try
-            let expr = evalExn emptyEnv expr
+            let expr = eval Env.empty expr
             let finish = System.DateTime.Now
             let duration = finish - start
             printfn $"[{duration.TotalMilliseconds}ms]>> {expr}"
