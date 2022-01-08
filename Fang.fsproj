@@ -10,13 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="MinimalLang.fs" />
-    <Compile Include="Lang.fs" />
-    <Compile Include="Example.fs" />
-    <Compile Include="TreeInterpreter.fs" />
-    <Compile Include="ChunkedBytecode.fs" />
-    <Compile Include="FlatBytecode.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="Core\Core.fsproj" />
+  </ItemGroup>
 </Project>

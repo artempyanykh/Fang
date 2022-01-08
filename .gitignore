@@ -2,3 +2,7 @@ bin
 obj
 .idea
 .vs
+Core/Parser.fs
+Core/Parser.fsi
+Core/Lexer.fs
+Fang.sln.DotSettings.user

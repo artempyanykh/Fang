@@ -1,0 +1,22 @@
+﻿{
+open Fang.Parser
+
+open FSharp.Text.Lexing
+
+let lexeme = LexBuffer<_>.LexemeString
+    
+let newline (lexbuf: LexBuffer<_>) = 
+  lexbuf.StartPos <- lexbuf.StartPos.NextLine
+}
+
+let letter = ['a'-'z' 'A'-'Z']
+let ident  = ('_' | letter) (letter)* '\''*
+let whitespace  = [' ' '\t']   
+let newline = ('\n' | 'r' 'n')
+
+
+rule token = parse
+| whitespace { token lexbuf }
+| newline { newline lexbuf; token lexbuf }
+| ident { IDENT (lexeme lexbuf) }
+| eof { EOF}

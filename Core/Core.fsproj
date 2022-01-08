@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <FsLexToolPath>$(NugetPackageRoot)/fslexyacc/11.0.0-beta1/build/fslex/netcoreapp3.1</FsLexToolPath>
+        <FsYaccToolPath>$(NugetPackageRoot)/fslexyacc/11.0.0-beta1/build/fsyacc/netcoreapp3.1</FsYaccToolPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FsLexYacc" Version="11.0.0-beta1" />
+    </ItemGroup>
+    
+    <Import Project="$(NugetPackageRoot)/fslexyacc/11.0.0-beta1/src/FsLexYacc.targets" />
+
+    <ItemGroup>
+        <Compile Include="Lang.fs" />
+        <Compile Include="Example.fs" />
+        <Compile Include="TreeInterpreter.fs" />
+        <Compile Include="ChunkedBytecode.fs" />
+        <Compile Include="FlatBytecode.fs" />
+        <FsYacc Include="Parser.fsy">
+            <OtherFlags>--module Fang.Parser --internal</OtherFlags>
+        </FsYacc>
+        <FsLex Include="Lexer.fsl">
+            <OtherFlags>--module Fang.Lexer --unicode --internal</OtherFlags>
+        </FsLex>
+        <Compile Include="Parser.fs" />
+        <Compile Include="Lexer.fs" />
+        <Compile Include="ParserFacade.fs" />
+    </ItemGroup>
+</Project>

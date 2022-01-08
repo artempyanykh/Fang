@@ -1,0 +1,18 @@
+%{
+open Fang.Lang
+
+%}
+
+%start start
+
+%token <string> IDENT
+%token EOF
+
+%type <Option<Expr>> start
+
+%%
+
+start: prog  { $1 }
+
+prog:
+    | EOF { None }
