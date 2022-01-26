@@ -3,7 +3,7 @@ module Fang.Tests
 open Xunit
 
 module TokenizerTests =
-    module Parser = ParserFacade
+    module Parser = Parser
 
     [<Fact>]
     let ``nop``() =

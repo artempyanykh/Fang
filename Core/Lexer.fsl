@@ -1,5 +1,5 @@
 ﻿{
-open Fang.Parser
+open Fang.GeneratedParser
 
 open FSharp.Text.Lexing
 
