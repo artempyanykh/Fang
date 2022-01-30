@@ -1,13 +1,47 @@
 %{
+let handleNeg expr =
+    match expr with
+    | Lit (BType.Int i) -> Lit (BType.Int (-i))
+    | _ -> Builtin (UnaryArithmetic(Neg, expr))
 
+let rec mkApp expr args =
+    match args with
+    | [only] -> App(expr, only)
+    | h :: t -> mkApp (App(expr, h)) t
+    | [] -> failwith "empty arglist"
+
+let rec mkBind isRec name args body expr =
+    let core = body
+    let unsugaredBody = List.foldBack (fun n acc -> Abs(n, acc)) args core
+    Bind(isRec, name, unsugaredBody, expr)
+
+let rec mkAbs names body =
+    List.foldBack (fun n acc -> Abs(n, acc)) names body
 %}
 
 %start start
 
 %token <string> IDENT
+%token <int> INT
+%token BSLASH DOT LPAR RPAR COMMA
+%token ADD SUB MUL DIV
+%token IF THEN ELSE 
+%token LET REC IN
+%token EQ LE GE
 %token EOF
 
 %type <Option<Expr>> start
+
+%left IF THEN ELSE LET IN
+%nonassoc INT IDENT LPAR 
+%left COMMA
+%left EQ LE GE
+%left ADD SUB
+%left MUL DIV
+%right BSLASH DOT
+%left app_prec
+%nonassoc neg_prec
+%nonassoc simple_reduce_prec
 
 %%
 
@@ -15,3 +49,52 @@ start: prog  { $1 }
 
 prog:
     | EOF { None }
+    | expr EOF { Some $1 }
+    
+simpleExpr:
+    | INT { Lit (BType.Int $1) }
+    | IDENT { Var (VarName.make $1) }
+    | LPAR expr RPAR { $2 }
+    
+simpleExprs:
+    | simpleExpr { [$1] }
+    | simpleExpr simpleExprs { List.append [$1] $2 }
+
+idents:
+    | IDENT { [VarName.make $1] }
+    | IDENT idents { List.append [$1] $2 }
+
+expr:
+    | simpleExpr %prec simple_reduce_prec { $1 }
+    | absExpr { $1 }
+    | condExpr { $1 }
+    | letExpr { $1 }
+    | appExpr { $1 }
+    | prefixExpr { $1 }
+    | infixExpr { $1 }
+
+absExpr:
+    | BSLASH idents DOT expr { mkAbs $2 $4 }
+    
+condExpr:
+    | IF expr THEN expr ELSE expr { Cond($2, $4, $6) }
+    
+letExpr:
+    | LET idents EQ expr IN expr { mkBind false (List.head $2) (List.tail $2) $4 $6 }
+    | LET REC idents EQ expr IN expr { mkBind true (List.head $3) (List.tail $3) $5 $7 }
+    
+appExpr:
+    | simpleExpr simpleExprs %prec app_prec { mkApp $1 $2 }
+    
+prefixExpr:
+    | SUB simpleExpr %prec neg_prec { handleNeg $2 }
+
+infixExpr:
+    | expr ADD expr { Builtin(Arithmetic(ArithmeticFn.Add, $1, $3)) }
+    | expr SUB expr { Builtin(Arithmetic(ArithmeticFn.Sub, $1, $3)) }
+    | expr MUL expr { Builtin(Arithmetic(ArithmeticFn.Mul, $1, $3)) }
+    | expr DIV expr { Builtin(Arithmetic(ArithmeticFn.Div, $1, $3)) }
+    
+    | expr EQ expr { Builtin(Comparison(ComparisonFn.Equal, $1, $3)) }
+    | expr LE expr { Builtin(Comparison(ComparisonFn.Less, $1, $3)) }
+    | expr GE expr { Builtin(Comparison(ComparisonFn.Greater, $1, $3)) }

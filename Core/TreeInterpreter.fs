@@ -11,8 +11,8 @@ and Closure =
 
 
 and [<Struct>] Value =
-    | Int of intVal:int
-    | Closure of closureVal:Closure
+    | Int of intVal: int
+    | Closure of closureVal: Closure
     | BlackHole
 
 module Env =
@@ -72,12 +72,17 @@ let rec eval (env: Env) (expr: Expr) : Value =
         let a = eval env a |> valueAsInt
         let b = eval env b |> valueAsInt
 
-        Value.Int (evalArithmetic fn a b)
+        Value.Int(evalArithmetic fn a b)
+    | Builtin (UnaryArithmetic (fn, expr)) ->
+        let exprVal = eval env expr |> valueAsInt
+
+        match fn with
+        | UnaryArithmeticFn.Neg -> Value.Int(-exprVal)
     | Builtin (Comparison (fn, l, r)) ->
         let a = eval env l |> valueAsInt
         let b = eval env r |> valueAsInt
 
-        Value.Int (evalComparison fn a b)
+        Value.Int(evalComparison fn a b)
     | Bind (recursive, var, body, expr) ->
         let bodyEnv =
             if recursive then

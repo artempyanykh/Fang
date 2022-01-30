@@ -1,9 +1,9 @@
 module Fang.FlatBytecode
 
 open System
-open Fang.ChunkedBytecode
+open Fang.SymbolicBytecode
 
-module SB = ChunkedBytecode
+module SB = SymbolicBytecode
 
 type Bytecode = { code: array<byte>; entry: int }
 
@@ -33,40 +33,43 @@ module OpCodeNum =
     let IntDiv = 14uy
 
     [<Literal>]
-    let IntLess = 15uy
+    let IntNeg = 15uy
 
     [<Literal>]
-    let IntEqual = 16uy
+    let IntLess = 20uy
 
     [<Literal>]
-    let IntGreater = 17uy
+    let IntEqual = 21uy
 
     [<Literal>]
-    let EnvLoad = 20uy
+    let IntGreater = 22uy
 
     [<Literal>]
-    let EnvSave = 21uy
+    let EnvLoad = 30uy
 
     [<Literal>]
-    let EnvDrop = 22uy
+    let EnvSave = 31uy
 
     [<Literal>]
-    let EnvSaveRec = 23uy
+    let EnvDrop = 32uy
 
     [<Literal>]
-    let Jump = 30uy
+    let EnvSaveRec = 33uy
 
     [<Literal>]
-    let BranchTrue = 31uy
+    let Jump = 40uy
 
     [<Literal>]
-    let MakeClosure = 40uy
+    let BranchTrue = 41uy
 
     [<Literal>]
-    let Apply = 41uy
+    let MakeClosure = 50uy
 
     [<Literal>]
-    let Return = 42uy
+    let Apply = 51uy
+
+    [<Literal>]
+    let Return = 52uy
 
 type BytecodeElement =
     | OpCode of byte
@@ -88,6 +91,12 @@ module BytecodeElement =
                 | SB.IntOp.Sub -> OpCodeNum.IntSub
                 | SB.IntOp.Mul -> OpCodeNum.IntMul
                 | SB.IntOp.Div -> OpCodeNum.IntDiv
+
+            [ OpCode code ]
+        | SB.Instr.UnaryIntOperation op ->
+            let code =
+                match op with
+                | SB.UnaryIntOp.Neg -> OpCodeNum.IntNeg
 
             [ OpCode code ]
         | SB.Instr.IntComparison cmp ->
@@ -301,6 +310,9 @@ module FlatVM =
                         | _ -> failwith "Impossible"
 
                     stack.Push(Value.Int result)
+                | OpCodeNum.IntNeg ->
+                    let arg = stack.Pop() |> valueAsIntExn
+                    stack.Push(Value.Int(-arg))
                 | OpCodeNum.IntLess
                 | OpCodeNum.IntEqual
                 | OpCodeNum.IntGreater ->

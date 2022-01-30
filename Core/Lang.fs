@@ -16,6 +16,8 @@ type ArithmeticFn =
     | Mul
     | Div
 
+type UnaryArithmeticFn = | Neg
+
 type ComparisonFn =
     | Less
     | Equal
@@ -23,8 +25,9 @@ type ComparisonFn =
 
 type BuiltinFn =
     | Arithmetic of fn: ArithmeticFn * opA: Expr * opB: Expr
+    | UnaryArithmetic of fn: UnaryArithmeticFn * op: Expr
     | Comparison of fn: ComparisonFn * lhs: Expr * rhs: Expr
-
+    
 and Expr =
     | Lit of BType
     | Var of VarName

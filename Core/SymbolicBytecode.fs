@@ -1,4 +1,4 @@
-module Fang.ChunkedBytecode
+module Fang.SymbolicBytecode
 
 open System.Collections.Generic
 open Fang.Lang
@@ -9,6 +9,9 @@ type IntOp =
     | Sub
     | Mul
     | Div
+
+[<RequireQualifiedAccess>]
+type UnaryIntOp = | Neg
 
 [<RequireQualifiedAccess>]
 type IntCmp =
@@ -30,6 +33,7 @@ type Instr =
     | Bottom
     | IntConst of int
     | IntOperation of IntOp
+    | UnaryIntOperation of UnaryIntOp
     | IntComparison of IntCmp
     | EnvLoad of name: ConstNum
     | EnvSave of name: ConstNum
@@ -189,6 +193,11 @@ let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
         | Sub -> bc.EmitInstr(chunk, IntOperation IntOp.Sub)
         | Mul -> bc.EmitInstr(chunk, IntOperation IntOp.Mul)
         | Div -> bc.EmitInstr(chunk, IntOperation IntOp.Div)
+    | Builtin (UnaryArithmetic (fn, expr)) ->
+        genBytecodeImpl bc chunk expr
+
+        match fn with
+        | Neg -> bc.EmitInstr(chunk, UnaryIntOperation UnaryIntOp.Neg)
     | Builtin (Comparison (comparisonFn, lhs, rhs)) ->
         genBytecodeImpl bc chunk lhs
         genBytecodeImpl bc chunk rhs
@@ -311,6 +320,14 @@ module ChunkedVM =
                         | IntOp.Div -> arg1 / arg2
 
                     stack.Push(Value.Int result)
+                | UnaryIntOperation op ->
+                    let arg = stack.Pop() |> valueAsIntExn
+
+                    let result =
+                        match op with
+                        | UnaryIntOp.Neg -> -arg
+
+                    stack.Push(Value.Int result)
                 | IntComparison op ->
                     let arg2 = stack.Pop() |> valueAsIntExn
                     let arg1 = stack.Pop() |> valueAsIntExn
@@ -337,7 +354,7 @@ module ChunkedVM =
                     let closure = value |> valueAsClosureExn
                     let closureEnv = Env.withBinding nameId value closure.env
                     closure.env <- closureEnv
-                    
+
                     envStack.Push(env)
                     env <- Env.withBinding nameId value env
                 | Jump label ->

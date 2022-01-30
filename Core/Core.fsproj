@@ -19,8 +19,8 @@
             BeforeTargets="PrepareSourceFiles"
             Inputs="Parser.fsy;Lexer.fsl"
             Outputs="$(OutputPath)/GeneratedParser.fsi;$(OutputPath)/GeneratedParser.fs;$(OutputPath)/GeneratedLexer.fs">
-        <Exec Command='dotnet "$(FsYaccToolPath)/$(FsYaccToolExe)" Parser.fsy -o "$(OutputPath)/GeneratedParser.fs" --module Fang.GeneratedParser --internal --open Fang.Lang'/>
-        <Exec Command='dotnet "$(FsLexToolPath)/$(FsLexToolExe)" Lexer.fsl -o "$(OutputPath)/GeneratedLexer.fs" --module Fang.GeneratedLexer --unicode --internal'/>
+        <Exec Command='dotnet "$(FsYaccToolPath)/$(FsYaccToolExe)" Parser.fsy -o "$(OutputPath)/GeneratedParser.fs" --module Fang.GeneratedParser --open Fang.Lang'/>
+        <Exec Command='dotnet "$(FsLexToolPath)/$(FsLexToolExe)" Lexer.fsl -o "$(OutputPath)/GeneratedLexer.fs" --module Fang.GeneratedLexer --unicode'/>
         <ItemGroup>
             <FileWrites Include="$(OutputPath)/GeneratedParser.fsi"/>
             <FileWrites Include="$(OutputPath)/GeneratedParser.fs"/>
@@ -38,7 +38,7 @@
             <Compile Include="@(GeneratedCode)" />
             <Compile Include="Example.fs"/>
             <Compile Include="TreeInterpreter.fs"/>
-            <Compile Include="ChunkedBytecode.fs"/>
+            <Compile Include="SymbolicBytecode.fs"/>
             <Compile Include="FlatBytecode.fs"/>
             <Compile Include="Parser.fs"/>
         </ItemGroup>

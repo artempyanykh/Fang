@@ -24,7 +24,7 @@ let main args =
 
     let interpreters =
         [ "Tree-based interpreter", TreeInterpreter.Ex.evalPrint
-          "Chunked Bytecode", ChunkedBytecode.Ex.evalPrint
+          "Chunked Bytecode", SymbolicBytecode.Ex.evalPrint
           "Flat Bytecode", FlatBytecode.Ex.evalPrint ]
 
     for exampleName, example in examples do
