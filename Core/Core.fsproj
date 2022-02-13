@@ -33,11 +33,11 @@
             <Compile Include="Lang.fs" />
             <Compile Include="Diagnostics.fs" />
             <Compile Include="@(GeneratedCode)" />
+            <Compile Include="Parser.fs" />
             <Compile Include="Example.fs" />
             <Compile Include="TreeInterpreter.fs" />
             <Compile Include="SymbolicBytecode.fs" />
             <Compile Include="FlatBytecode.fs" />
-            <Compile Include="Parser.fs" />
         </ItemGroup>
     </Target>
     

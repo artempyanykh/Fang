@@ -535,5 +535,168 @@
         ]
       }
     ]
+  },
+  "plusMulMixed": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Builtin",
+        "Fields": [
+          {
+            "Case": "Arithmetic",
+            "Fields": [
+              {
+                "Case": "Add"
+              },
+              {
+                "Case": "Lit",
+                "Fields": [
+                  {
+                    "Case": "Int",
+                    "Fields": [
+                      2
+                    ]
+                  }
+                ]
+              },
+              {
+                "Case": "Builtin",
+                "Fields": [
+                  {
+                    "Case": "Arithmetic",
+                    "Fields": [
+                      {
+                        "Case": "Mul"
+                      },
+                      {
+                        "Case": "Lit",
+                        "Fields": [
+                          {
+                            "Case": "Int",
+                            "Fields": [
+                              3
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "Case": "Lit",
+                        "Fields": [
+                          {
+                            "Case": "Int",
+                            "Fields": [
+                              4
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "digitsInIdents": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Bind",
+        "Fields": [
+          false,
+          "x2",
+          {
+            "Case": "Lit",
+            "Fields": [
+              {
+                "Case": "Int",
+                "Fields": [
+                  42
+                ]
+              }
+            ]
+          },
+          {
+            "Case": "Var",
+            "Fields": [
+              "x2"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "letInArithmetic": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Bind",
+        "Fields": [
+          false,
+          "inc",
+          {
+            "Case": "Abs",
+            "Fields": [
+              "x",
+              {
+                "Case": "Builtin",
+                "Fields": [
+                  {
+                    "Case": "Arithmetic",
+                    "Fields": [
+                      {
+                        "Case": "Add"
+                      },
+                      {
+                        "Case": "Var",
+                        "Fields": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "Case": "Lit",
+                        "Fields": [
+                          {
+                            "Case": "Int",
+                            "Fields": [
+                              1
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Case": "App",
+            "Fields": [
+              {
+                "Case": "Var",
+                "Fields": [
+                  "inc"
+                ]
+              },
+              {
+                "Case": "Lit",
+                "Fields": [
+                  {
+                    "Case": "Int",
+                    "Fields": [
+                      3
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

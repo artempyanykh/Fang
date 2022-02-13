@@ -33,6 +33,10 @@ module ParserTests =
     let doubleNeg () =
         let _, errors = tryParseWithDiag "--6"
         errors.ShouldMatchSnapshot()
+        
+    [<Fact>]
+    let plusMulMixed () =
+        (tryParse "2 + 3 * 4").ShouldMatchSnapshot()
 
     [<Fact>]
     let letWithoutIn () =
@@ -56,6 +60,15 @@ let y = 6"
     let multiArgAbs () =
         (tryParse @"\a b c. b*b - 4*a*c")
             .ShouldMatchSnapshot()
+            
+    [<Fact>]
+    let letInArithmetic () =
+        let source = @"let inc x = x + 1 in inc 3"
+        (tryParse source).ShouldMatchSnapshot()
+        
+    [<Fact>]
+    let digitsInIdents () =
+        (tryParse "let x2 = 42 in x2").ShouldMatchSnapshot()
 
     [<Fact>]
     let fib () =

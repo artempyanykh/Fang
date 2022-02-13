@@ -10,10 +10,11 @@ let newline (lexbuf: LexBuffer<_>) =
 }
 
 let letter = ['a'-'z' 'A'-'Z']
-let ident  = ('_' | letter) (letter)* '\''*
+let decDigit = ['0' - '9']
+let decNum = decDigit+
+let ident  = ('_' | letter) (letter | decDigit)* '\''*
 let whitespace  = [' ' '\t']   
 let newline = ('\n' | 'r' 'n')
-let decNum = ['0' - '9']+
 
 rule token = parse
 | "if" { IF }
