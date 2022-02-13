@@ -1,0 +1,539 @@
+{
+  "subComplex": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Builtin",
+        "Fields": [
+          {
+            "Case": "UnaryArithmetic",
+            "Fields": [
+              {
+                "Case": "Neg"
+              },
+              {
+                "Case": "Builtin",
+                "Fields": [
+                  {
+                    "Case": "Arithmetic",
+                    "Fields": [
+                      {
+                        "Case": "Sub"
+                      },
+                      {
+                        "Case": "Lit",
+                        "Fields": [
+                          {
+                            "Case": "Int",
+                            "Fields": [
+                              42
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "Case": "Lit",
+                        "Fields": [
+                          {
+                            "Case": "Int",
+                            "Fields": [
+                              17
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "opSub": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Builtin",
+        "Fields": [
+          {
+            "Case": "Arithmetic",
+            "Fields": [
+              {
+                "Case": "Sub"
+              },
+              {
+                "Case": "Lit",
+                "Fields": [
+                  {
+                    "Case": "Int",
+                    "Fields": [
+                      1
+                    ]
+                  }
+                ]
+              },
+              {
+                "Case": "Lit",
+                "Fields": [
+                  {
+                    "Case": "Int",
+                    "Fields": [
+                      5
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "num": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Lit",
+        "Fields": [
+          {
+            "Case": "Int",
+            "Fields": [
+              1
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "simpleAbs": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Abs",
+        "Fields": [
+          "n",
+          {
+            "Case": "Var",
+            "Fields": [
+              "n"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "fib": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Bind",
+        "Fields": [
+          true,
+          "fib",
+          {
+            "Case": "Abs",
+            "Fields": [
+              "n",
+              {
+                "Case": "Cond",
+                "Fields": [
+                  {
+                    "Case": "Builtin",
+                    "Fields": [
+                      {
+                        "Case": "Comparison",
+                        "Fields": [
+                          {
+                            "Case": "Less"
+                          },
+                          {
+                            "Case": "Var",
+                            "Fields": [
+                              "n"
+                            ]
+                          },
+                          {
+                            "Case": "Lit",
+                            "Fields": [
+                              {
+                                "Case": "Int",
+                                "Fields": [
+                                  2
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "Case": "Lit",
+                    "Fields": [
+                      {
+                        "Case": "Int",
+                        "Fields": [
+                          1
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "Case": "Builtin",
+                    "Fields": [
+                      {
+                        "Case": "Arithmetic",
+                        "Fields": [
+                          {
+                            "Case": "Add"
+                          },
+                          {
+                            "Case": "App",
+                            "Fields": [
+                              {
+                                "Case": "Var",
+                                "Fields": [
+                                  "fib"
+                                ]
+                              },
+                              {
+                                "Case": "Builtin",
+                                "Fields": [
+                                  {
+                                    "Case": "Arithmetic",
+                                    "Fields": [
+                                      {
+                                        "Case": "Sub"
+                                      },
+                                      {
+                                        "Case": "Var",
+                                        "Fields": [
+                                          "n"
+                                        ]
+                                      },
+                                      {
+                                        "Case": "Lit",
+                                        "Fields": [
+                                          {
+                                            "Case": "Int",
+                                            "Fields": [
+                                              1
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "Case": "App",
+                            "Fields": [
+                              {
+                                "Case": "Var",
+                                "Fields": [
+                                  "fib"
+                                ]
+                              },
+                              {
+                                "Case": "Builtin",
+                                "Fields": [
+                                  {
+                                    "Case": "Arithmetic",
+                                    "Fields": [
+                                      {
+                                        "Case": "Sub"
+                                      },
+                                      {
+                                        "Case": "Var",
+                                        "Fields": [
+                                          "n"
+                                        ]
+                                      },
+                                      {
+                                        "Case": "Lit",
+                                        "Fields": [
+                                          {
+                                            "Case": "Int",
+                                            "Fields": [
+                                              2
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Case": "App",
+            "Fields": [
+              {
+                "Case": "Var",
+                "Fields": [
+                  "fib"
+                ]
+              },
+              {
+                "Case": "Lit",
+                "Fields": [
+                  {
+                    "Case": "Int",
+                    "Fields": [
+                      10
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "opAdd": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Builtin",
+        "Fields": [
+          {
+            "Case": "Arithmetic",
+            "Fields": [
+              {
+                "Case": "Add"
+              },
+              {
+                "Case": "Lit",
+                "Fields": [
+                  {
+                    "Case": "Int",
+                    "Fields": [
+                      1
+                    ]
+                  }
+                ]
+              },
+              {
+                "Case": "Lit",
+                "Fields": [
+                  {
+                    "Case": "Int",
+                    "Fields": [
+                      2
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "multiArgAbs": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Builtin",
+        "Fields": [
+          {
+            "Case": "Arithmetic",
+            "Fields": [
+              {
+                "Case": "Sub"
+              },
+              {
+                "Case": "Builtin",
+                "Fields": [
+                  {
+                    "Case": "Arithmetic",
+                    "Fields": [
+                      {
+                        "Case": "Mul"
+                      },
+                      {
+                        "Case": "Abs",
+                        "Fields": [
+                          "a",
+                          {
+                            "Case": "Abs",
+                            "Fields": [
+                              "b",
+                              {
+                                "Case": "Abs",
+                                "Fields": [
+                                  "c",
+                                  {
+                                    "Case": "Var",
+                                    "Fields": [
+                                      "b"
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "Case": "Var",
+                        "Fields": [
+                          "b"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Case": "Builtin",
+                "Fields": [
+                  {
+                    "Case": "Arithmetic",
+                    "Fields": [
+                      {
+                        "Case": "Mul"
+                      },
+                      {
+                        "Case": "Builtin",
+                        "Fields": [
+                          {
+                            "Case": "Arithmetic",
+                            "Fields": [
+                              {
+                                "Case": "Mul"
+                              },
+                              {
+                                "Case": "Lit",
+                                "Fields": [
+                                  {
+                                    "Case": "Int",
+                                    "Fields": [
+                                      4
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "Case": "Var",
+                                "Fields": [
+                                  "a"
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "Case": "Var",
+                        "Fields": [
+                          "c"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "negNum": {
+    "Case": "Some",
+    "Fields": [
+      {
+        "Case": "Lit",
+        "Fields": [
+          {
+            "Case": "Int",
+            "Fields": [
+              -1
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "doubleNeg": {
+    "AutoGenerated": [
+      {
+        "Case": "ParseError",
+        "Fields": [
+          {
+            "Case": "Some",
+            "Fields": [
+              {
+                "Case": "SUB"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "letWithoutIn2": {
+    "AutoGenerated": [
+      {
+        "Case": "ParseError",
+        "Fields": [
+          {
+            "Case": "Some",
+            "Fields": [
+              {
+                "Case": "LET"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "Case": "ParseError",
+        "Fields": [
+          {
+            "Case": "Some",
+            "Fields": [
+              {
+                "Case": "EOF"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "letWithoutIn": {
+    "AutoGenerated": [
+      {
+        "Case": "ParseError",
+        "Fields": [
+          {
+            "Case": "Some",
+            "Fields": [
+              {
+                "Case": "EOF"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

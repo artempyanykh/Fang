@@ -39,3 +39,4 @@ rule token = parse
 | whitespace { token lexbuf }
 | newline { newline lexbuf; token lexbuf }
 | eof { EOF}
+| '.' { ERROR (lexeme lexbuf) }

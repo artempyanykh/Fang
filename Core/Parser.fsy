@@ -1,4 +1,6 @@
 %{
+module D = Fang.Diagnostics
+
 let handleNeg expr =
     match expr with
     | Lit (BType.Int i) -> Lit (BType.Int (-i))
@@ -17,6 +19,10 @@ let rec mkBind isRec name args body expr =
 
 let rec mkAbs names body =
     List.foldBack (fun n acc -> Abs(n, acc)) names body
+    
+let parse_error_rich = Some (fun ctx ->
+    D.add_parse_error (D.UntypedParseError ctx)
+)
 %}
 
 %start start
@@ -28,6 +34,7 @@ let rec mkAbs names body =
 %token IF THEN ELSE 
 %token LET REC IN
 %token EQ LE GE
+%token <string> ERROR
 %token EOF
 
 %type <Option<Expr>> start
@@ -42,6 +49,7 @@ let rec mkAbs names body =
 %left app_prec
 %nonassoc neg_prec
 %nonassoc simple_reduce_prec
+%nonassoc err_prec
 
 %%
 
@@ -50,6 +58,11 @@ start: prog  { $1 }
 prog:
     | EOF { None }
     | expr EOF { Some $1 }
+    | error EOF { None }
+
+EOFs:
+    | EOF { None }
+    | EOF EOFs { None }
     
 simpleExpr:
     | INT { Lit (BType.Int $1) }
@@ -72,6 +85,7 @@ expr:
     | appExpr { $1 }
     | prefixExpr { $1 }
     | infixExpr { $1 }
+    | error expr  %prec err_prec { $2 }
 
 absExpr:
     | BSLASH idents DOT expr { mkAbs $2 $4 }
