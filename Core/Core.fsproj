@@ -12,6 +12,7 @@
     </PropertyGroup>
     
     <ItemGroup>
+        <PackageReference Include="Farkle" Version="6.3.2" />
         <PackageReference Include="FsLexYacc" Version="11.0.0-beta1" />
     </ItemGroup>
 
