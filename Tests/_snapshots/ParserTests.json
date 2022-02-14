@@ -1,702 +1,107 @@
 {
-  "subComplex": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Builtin",
-        "Fields": [
-          {
-            "Case": "UnaryArithmetic",
-            "Fields": [
-              {
-                "Case": "Neg"
-              },
-              {
-                "Case": "Builtin",
-                "Fields": [
-                  {
-                    "Case": "Arithmetic",
-                    "Fields": [
-                      {
-                        "Case": "Sub"
-                      },
-                      {
-                        "Case": "Lit",
-                        "Fields": [
-                          {
-                            "Case": "Int",
-                            "Fields": [
-                              42
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "Case": "Lit",
-                        "Fields": [
-                          {
-                            "Case": "Int",
-                            "Fields": [
-                              17
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "opSub": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Builtin",
-        "Fields": [
-          {
-            "Case": "Arithmetic",
-            "Fields": [
-              {
-                "Case": "Sub"
-              },
-              {
-                "Case": "Lit",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      1
-                    ]
-                  }
-                ]
-              },
-              {
-                "Case": "Lit",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      5
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "num": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Lit",
-        "Fields": [
-          {
-            "Case": "Int",
-            "Fields": [
-              1
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "simpleAbs": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Abs",
-        "Fields": [
-          "n",
-          {
-            "Case": "Var",
-            "Fields": [
-              "n"
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "fib": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Bind",
-        "Fields": [
-          true,
-          "fib",
-          {
-            "Case": "Abs",
-            "Fields": [
-              "n",
-              {
-                "Case": "Cond",
-                "Fields": [
-                  {
-                    "Case": "Builtin",
-                    "Fields": [
-                      {
-                        "Case": "Comparison",
-                        "Fields": [
-                          {
-                            "Case": "Less"
-                          },
-                          {
-                            "Case": "Var",
-                            "Fields": [
-                              "n"
-                            ]
-                          },
-                          {
-                            "Case": "Lit",
-                            "Fields": [
-                              {
-                                "Case": "Int",
-                                "Fields": [
-                                  2
-                                ]
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "Case": "Lit",
-                    "Fields": [
-                      {
-                        "Case": "Int",
-                        "Fields": [
-                          1
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "Case": "Builtin",
-                    "Fields": [
-                      {
-                        "Case": "Arithmetic",
-                        "Fields": [
-                          {
-                            "Case": "Add"
-                          },
-                          {
-                            "Case": "App",
-                            "Fields": [
-                              {
-                                "Case": "Var",
-                                "Fields": [
-                                  "fib"
-                                ]
-                              },
-                              {
-                                "Case": "Builtin",
-                                "Fields": [
-                                  {
-                                    "Case": "Arithmetic",
-                                    "Fields": [
-                                      {
-                                        "Case": "Sub"
-                                      },
-                                      {
-                                        "Case": "Var",
-                                        "Fields": [
-                                          "n"
-                                        ]
-                                      },
-                                      {
-                                        "Case": "Lit",
-                                        "Fields": [
-                                          {
-                                            "Case": "Int",
-                                            "Fields": [
-                                              1
-                                            ]
-                                          }
-                                        ]
-                                      }
-                                    ]
-                                  }
-                                ]
-                              }
-                            ]
-                          },
-                          {
-                            "Case": "App",
-                            "Fields": [
-                              {
-                                "Case": "Var",
-                                "Fields": [
-                                  "fib"
-                                ]
-                              },
-                              {
-                                "Case": "Builtin",
-                                "Fields": [
-                                  {
-                                    "Case": "Arithmetic",
-                                    "Fields": [
-                                      {
-                                        "Case": "Sub"
-                                      },
-                                      {
-                                        "Case": "Var",
-                                        "Fields": [
-                                          "n"
-                                        ]
-                                      },
-                                      {
-                                        "Case": "Lit",
-                                        "Fields": [
-                                          {
-                                            "Case": "Int",
-                                            "Fields": [
-                                              2
-                                            ]
-                                          }
-                                        ]
-                                      }
-                                    ]
-                                  }
-                                ]
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "Case": "App",
-            "Fields": [
-              {
-                "Case": "Var",
-                "Fields": [
-                  "fib"
-                ]
-              },
-              {
-                "Case": "Lit",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      10
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "opAdd": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Builtin",
-        "Fields": [
-          {
-            "Case": "Arithmetic",
-            "Fields": [
-              {
-                "Case": "Add"
-              },
-              {
-                "Case": "Lit",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      1
-                    ]
-                  }
-                ]
-              },
-              {
-                "Case": "Lit",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      2
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "multiArgAbs": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Builtin",
-        "Fields": [
-          {
-            "Case": "Arithmetic",
-            "Fields": [
-              {
-                "Case": "Sub"
-              },
-              {
-                "Case": "Builtin",
-                "Fields": [
-                  {
-                    "Case": "Arithmetic",
-                    "Fields": [
-                      {
-                        "Case": "Mul"
-                      },
-                      {
-                        "Case": "Abs",
-                        "Fields": [
-                          "a",
-                          {
-                            "Case": "Abs",
-                            "Fields": [
-                              "b",
-                              {
-                                "Case": "Abs",
-                                "Fields": [
-                                  "c",
-                                  {
-                                    "Case": "Var",
-                                    "Fields": [
-                                      "b"
-                                    ]
-                                  }
-                                ]
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "Case": "Var",
-                        "Fields": [
-                          "b"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "Case": "Builtin",
-                "Fields": [
-                  {
-                    "Case": "Arithmetic",
-                    "Fields": [
-                      {
-                        "Case": "Mul"
-                      },
-                      {
-                        "Case": "Builtin",
-                        "Fields": [
-                          {
-                            "Case": "Arithmetic",
-                            "Fields": [
-                              {
-                                "Case": "Mul"
-                              },
-                              {
-                                "Case": "Lit",
-                                "Fields": [
-                                  {
-                                    "Case": "Int",
-                                    "Fields": [
-                                      4
-                                    ]
-                                  }
-                                ]
-                              },
-                              {
-                                "Case": "Var",
-                                "Fields": [
-                                  "a"
-                                ]
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "Case": "Var",
-                        "Fields": [
-                          "c"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "negNum": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Lit",
-        "Fields": [
-          {
-            "Case": "Int",
-            "Fields": [
-              -1
-            ]
-          }
-        ]
-      }
-    ]
-  },
   "doubleNeg": {
     "AutoGenerated": [
-      {
-        "Case": "ParseError",
-        "Fields": [
-          {
-            "Case": "Some",
-            "Fields": [
-              {
-                "Case": "SUB"
-              }
-            ]
-          }
-        ]
-      }
+      "(1, 2) Found '-' while expecting one of the following tokens: int, ident, '('."
     ]
   },
   "letWithoutIn2": {
     "AutoGenerated": [
-      {
-        "Case": "ParseError",
-        "Fields": [
-          {
-            "Case": "Some",
-            "Fields": [
-              {
-                "Case": "LET"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "Case": "ParseError",
-        "Fields": [
-          {
-            "Case": "Some",
-            "Fields": [
-              {
-                "Case": "EOF"
-              }
-            ]
-          }
-        ]
-      }
+      "(2, 1) Found let while expecting one of the following tokens: int, ident, '(', ')', then, else, '=', in, '-', '+', '*', '/', '<', '>', (EOF)."
     ]
   },
   "letWithoutIn": {
     "AutoGenerated": [
-      {
-        "Case": "ParseError",
-        "Fields": [
-          {
-            "Case": "Some",
-            "Fields": [
-              {
-                "Case": "EOF"
-              }
-            ]
-          }
-        ]
-      }
+      "(1, 10) Found (EOF) while expecting one of the following tokens: '=', in, '-', '+', '*', '/', '<', '>'."
     ]
   },
-  "plusMulMixed": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Builtin",
-        "Fields": [
-          {
-            "Case": "Arithmetic",
-            "Fields": [
-              {
-                "Case": "Add"
-              },
-              {
-                "Case": "Lit",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      2
-                    ]
-                  }
-                ]
-              },
-              {
-                "Case": "Builtin",
-                "Fields": [
-                  {
-                    "Case": "Arithmetic",
-                    "Fields": [
-                      {
-                        "Case": "Mul"
-                      },
-                      {
-                        "Case": "Lit",
-                        "Fields": [
-                          {
-                            "Case": "Int",
-                            "Fields": [
-                              3
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "Case": "Lit",
-                        "Fields": [
-                          {
-                            "Case": "Int",
-                            "Fields": [
-                              4
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
+  "subComplex": {
+    "AutoGenerated": [
+      "Builtin",
+      "  (UnaryArithmetic (Neg, Builtin (Arithmetic (Sub, Lit (Int 42), Lit (Int 17)))))"
     ]
   },
-  "digitsInIdents": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Bind",
-        "Fields": [
-          false,
-          "x2",
-          {
-            "Case": "Lit",
-            "Fields": [
-              {
-                "Case": "Int",
-                "Fields": [
-                  42
-                ]
-              }
-            ]
-          },
-          {
-            "Case": "Var",
-            "Fields": [
-              "x2"
-            ]
-          }
-        ]
-      }
+  "opSub": {
+    "AutoGenerated": [
+      "Builtin (Arithmetic (Sub, Lit (Int 1), Lit (Int 5)))"
     ]
   },
   "letInArithmetic": {
-    "Case": "Some",
-    "Fields": [
-      {
-        "Case": "Bind",
-        "Fields": [
-          false,
-          "inc",
-          {
-            "Case": "Abs",
-            "Fields": [
-              "x",
-              {
-                "Case": "Builtin",
-                "Fields": [
-                  {
-                    "Case": "Arithmetic",
-                    "Fields": [
-                      {
-                        "Case": "Add"
-                      },
-                      {
-                        "Case": "Var",
-                        "Fields": [
-                          "x"
-                        ]
-                      },
-                      {
-                        "Case": "Lit",
-                        "Fields": [
-                          {
-                            "Case": "Int",
-                            "Fields": [
-                              1
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "Case": "App",
-            "Fields": [
-              {
-                "Case": "Var",
-                "Fields": [
-                  "inc"
-                ]
-              },
-              {
-                "Case": "Lit",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      3
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
+    "AutoGenerated": [
+      "Bind",
+      "  (false, \"inc\", Abs (\"x\", Builtin (Arithmetic (Add, Var \"x\", Lit (Int 1)))),",
+      "   App (Var \"inc\", Lit (Int 3)))"
+    ]
+  },
+  "plusMulMixed": {
+    "AutoGenerated": [
+      "Builtin",
+      "  (Arithmetic",
+      "     (Add, Lit (Int 2), Builtin (Arithmetic (Mul, Lit (Int 3), Lit (Int 4)))))"
+    ]
+  },
+  "absAndLet": {
+    "AutoGenerated": [
+      "Bind",
+      "  (false, \"f\", Abs (\"x\", Builtin (Arithmetic (Add, Var \"x\", Lit (Int 2)))),",
+      "   App (Var \"f\", Lit (Int 2)))"
+    ]
+  },
+  "num": {
+    "AutoGenerated": [
+      "Lit (Int 1)"
+    ]
+  },
+  "digitsInIdents": {
+    "AutoGenerated": [
+      "Bind (false, \"x2\", Lit (Int 42), Var \"x2\")"
+    ]
+  },
+  "simpleAbs": {
+    "AutoGenerated": [
+      "Abs (\"n\", Var \"n\")"
+    ]
+  },
+  "fib": {
+    "AutoGenerated": [
+      "Bind",
+      "  (true, \"fib\",",
+      "   Abs",
+      "     (\"n\",",
+      "      Cond",
+      "        (Builtin (Comparison (Less, Var \"n\", Lit (Int 2))), Lit (Int 1),",
+      "         Builtin",
+      "           (Arithmetic",
+      "              (Add,",
+      "               App (Var \"fib\", Builtin (Arithmetic (Sub, Var \"n\", Lit (Int 1)))),",
+      "               App (Var \"fib\", Builtin (Arithmetic (Sub, Var \"n\", Lit (Int 2)))))))),",
+      "   App (Var \"fib\", Lit (Int 10)))"
+    ]
+  },
+  "opAdd": {
+    "AutoGenerated": [
+      "Builtin (Arithmetic (Add, Lit (Int 1), Lit (Int 2)))"
+    ]
+  },
+  "multiArgAbs": {
+    "AutoGenerated": [
+      "Abs",
+      "  (\"a\",",
+      "   Abs",
+      "     (\"b\",",
+      "      Abs",
+      "        (\"c\",",
+      "         Builtin",
+      "           (Arithmetic",
+      "              (Sub, Builtin (Arithmetic (Mul, Var \"b\", Var \"b\")),",
+      "               Builtin",
+      "                 (Arithmetic",
+      "                    (Mul, Builtin (Arithmetic (Mul, Lit (Int 4), Var \"a\")),",
+      "                     Var \"c\")))))))"
+    ]
+  },
+  "negNum": {
+    "AutoGenerated": [
+      "Lit (Int -1)"
     ]
   }
 }

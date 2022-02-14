@@ -3,47 +3,18 @@
         <TargetFramework>net6.0</TargetFramework>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <OutputType>Library</OutputType>
-        <!--        Lexer and Parser generator props-->
-        <FsLexToolPath>$(NugetPackageRoot)/fslexyacc/11.0.0-beta1/build/fslex/netcoreapp3.1</FsLexToolPath>
-        <FsLexToolExe>fslex.dll</FsLexToolExe>
-        <FsYaccToolPath>$(NugetPackageRoot)/fslexyacc/11.0.0-beta1/build/fsyacc/netcoreapp3.1</FsYaccToolPath>
-        <FsYaccToolExe>fsyacc.dll</FsYaccToolExe>
-        <FsLexYaccToolRunner>dotnet</FsLexYaccToolRunner>
     </PropertyGroup>
-    
+
     <ItemGroup>
-        <PackageReference Include="Farkle" Version="6.3.2" />
-        <PackageReference Include="FsLexYacc" Version="11.0.0-beta1" />
+        <PackageReference Include="Farkle" Version="6.3.2"/>
     </ItemGroup>
 
-    <Target Name="GenerateCode" BeforeTargets="PrepareSourceFiles" Inputs="Parser.fsy;Lexer.fsl" Outputs="$(OutputPath)/GeneratedParser.fsi;$(OutputPath)/GeneratedParser.fs;$(OutputPath)/GeneratedLexer.fs">
-        <Exec Command="dotnet &quot;$(FsYaccToolPath)/$(FsYaccToolExe)&quot; Parser.fsy -o &quot;$(OutputPath)/GeneratedParser.fs&quot; --module Fang.GeneratedParser --open Fang.Lang" />
-        <Exec Command="dotnet &quot;$(FsLexToolPath)/$(FsLexToolExe)&quot; Lexer.fsl -o &quot;$(OutputPath)/GeneratedLexer.fs&quot; --module Fang.GeneratedLexer --unicode" />
-        <ItemGroup>
-            <FileWrites Include="$(OutputPath)/GeneratedParser.fsi" />
-            <FileWrites Include="$(OutputPath)/GeneratedParser.fs" />
-            <FileWrites Include="$(OutputPath)/GeneratedLexer.fs" />
-            <GeneratedCode Include="$(OutputPath)/GeneratedParser.fsi" />
-            <GeneratedCode Include="$(OutputPath)/GeneratedParser.fs" />
-            <GeneratedCode Include="$(OutputPath)/GeneratedLexer.fs" />
-        </ItemGroup>
-    </Target>
-    
-    <Target Name="PrepareSourceFiles" BeforeTargets="CoreCompile">
-        <ItemGroup>
-            <Compile Include="Lang.fs" />
-            <Compile Include="Diagnostics.fs" />
-            <Compile Include="@(GeneratedCode)" />
-            <Compile Include="Parser.fs" />
-            <Compile Include="Example.fs" />
-            <Compile Include="TreeInterpreter.fs" />
-            <Compile Include="SymbolicBytecode.fs" />
-            <Compile Include="FlatBytecode.fs" />
-        </ItemGroup>
-    </Target>
-    
     <ItemGroup>
-        <ResourceCompile Include="Parser.fsy" />
-        <ResourceCompile Include="Lexer.fsl" />
+        <Compile Include="Lang.fs"/>
+        <Compile Include="Parser.fs"/>
+        <Compile Include="Example.fs"/>
+        <Compile Include="TreeInterpreter.fs"/>
+        <Compile Include="SymbolicBytecode.fs"/>
+        <Compile Include="FlatBytecode.fs"/>
     </ItemGroup>
 </Project>
