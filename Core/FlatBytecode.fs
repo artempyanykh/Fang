@@ -84,27 +84,22 @@ module BytecodeElement =
         | SB.Instr.Nop -> [ OpCode OpCodeNum.Nop ]
         | SB.Instr.Bottom -> [ OpCode OpCodeNum.Bottom ]
         | SB.Instr.IntConst v -> [ OpCode OpCodeNum.IntConst; ImmInt v ]
-        | SB.Instr.IntOperation op ->
+        | SB.Instr.BinaryIntOperation op ->
             let code =
                 match op with
-                | SB.IntOp.Add -> OpCodeNum.IntAdd
-                | SB.IntOp.Sub -> OpCodeNum.IntSub
-                | SB.IntOp.Mul -> OpCodeNum.IntMul
-                | SB.IntOp.Div -> OpCodeNum.IntDiv
+                | SB.BinaryIntOp.Add -> OpCodeNum.IntAdd
+                | SB.BinaryIntOp.Sub -> OpCodeNum.IntSub
+                | SB.BinaryIntOp.Mul -> OpCodeNum.IntMul
+                | SB.BinaryIntOp.Div -> OpCodeNum.IntDiv
+                | SB.BinaryIntOp.Less -> OpCodeNum.IntLess
+                | SB.BinaryIntOp.Equal -> OpCodeNum.IntEqual
+                | SB.BinaryIntOp.Greater -> OpCodeNum.IntGreater
 
             [ OpCode code ]
         | SB.Instr.UnaryIntOperation op ->
             let code =
                 match op with
                 | SB.UnaryIntOp.Neg -> OpCodeNum.IntNeg
-
-            [ OpCode code ]
-        | SB.Instr.IntComparison cmp ->
-            let code =
-                match cmp with
-                | SB.IntCmp.Less -> OpCodeNum.IntLess
-                | SB.IntCmp.Equal -> OpCodeNum.IntEqual
-                | SB.IntCmp.Greater -> OpCodeNum.IntGreater
 
             [ OpCode code ]
         | SB.Instr.EnvLoad i -> [ OpCode OpCodeNum.EnvLoad; ImmInt i ]

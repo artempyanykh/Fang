@@ -4,20 +4,19 @@ open System.Collections.Generic
 open Fang.Lang
 
 [<RequireQualifiedAccess>]
-type IntOp =
+type BinaryIntOp =
+    // Arithmetic
     | Add
     | Sub
     | Mul
     | Div
-
-[<RequireQualifiedAccess>]
-type UnaryIntOp = | Neg
-
-[<RequireQualifiedAccess>]
-type IntCmp =
+    // Comparison
     | Less
     | Equal
     | Greater
+
+[<RequireQualifiedAccess>]
+type UnaryIntOp = | Neg
 
 type ConstNum = int
 
@@ -32,9 +31,8 @@ type Instr =
     | Nop
     | Bottom
     | IntConst of int
-    | IntOperation of IntOp
+    | BinaryIntOperation of BinaryIntOp
     | UnaryIntOperation of UnaryIntOp
-    | IntComparison of IntCmp
     | EnvLoad of name: ConstNum
     | EnvSave of name: ConstNum
     | EnvSaveRec of name: ConstNum
@@ -189,10 +187,10 @@ let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
         genBytecodeImpl bc chunk opB
 
         match arithmeticFn with
-        | Add -> bc.EmitInstr(chunk, IntOperation IntOp.Add)
-        | Sub -> bc.EmitInstr(chunk, IntOperation IntOp.Sub)
-        | Mul -> bc.EmitInstr(chunk, IntOperation IntOp.Mul)
-        | Div -> bc.EmitInstr(chunk, IntOperation IntOp.Div)
+        | Add -> bc.EmitInstr(chunk, BinaryIntOperation BinaryIntOp.Add)
+        | Sub -> bc.EmitInstr(chunk, BinaryIntOperation BinaryIntOp.Sub)
+        | Mul -> bc.EmitInstr(chunk, BinaryIntOperation BinaryIntOp.Mul)
+        | Div -> bc.EmitInstr(chunk, BinaryIntOperation BinaryIntOp.Div)
     | Builtin (UnaryArithmetic (fn, expr)) ->
         genBytecodeImpl bc chunk expr
 
@@ -203,9 +201,9 @@ let rec genBytecodeImpl (bc: Bytecode) (chunk: Chunk) (expr: Expr) : unit =
         genBytecodeImpl bc chunk rhs
 
         match comparisonFn with
-        | Less -> bc.EmitInstr(chunk, IntComparison IntCmp.Less)
-        | Equal -> bc.EmitInstr(chunk, IntComparison IntCmp.Equal)
-        | Greater -> bc.EmitInstr(chunk, IntComparison IntCmp.Greater)
+        | Less -> bc.EmitInstr(chunk, BinaryIntOperation BinaryIntOp.Less)
+        | Equal -> bc.EmitInstr(chunk, BinaryIntOperation BinaryIntOp.Equal)
+        | Greater -> bc.EmitInstr(chunk, BinaryIntOperation BinaryIntOp.Greater)
     | Bind (recursive, var, body, expr) ->
         let varConst = bc.ConstPool.Add var
 
@@ -235,7 +233,7 @@ let genBytecode (expr: Expr) : Bytecode =
     bc.EmitInstr(entry, Halt)
     bc
 
-module ChunkedVM =
+module SymbolicVM =
 
     [<RequireQualifiedAccess>]
     [<Struct>]
@@ -308,16 +306,19 @@ module ChunkedVM =
                 | Nop -> ()
                 | Bottom -> stack.Push(Value.Bottom)
                 | IntConst i -> stack.Push(Value.Int i)
-                | IntOperation op ->
+                | BinaryIntOperation op ->
                     let arg2 = stack.Pop() |> valueAsIntExn
                     let arg1 = stack.Pop() |> valueAsIntExn
 
                     let result =
                         match op with
-                        | IntOp.Add -> arg1 + arg2
-                        | IntOp.Sub -> arg1 - arg2
-                        | IntOp.Mul -> arg1 * arg2
-                        | IntOp.Div -> arg1 / arg2
+                        | BinaryIntOp.Add -> arg1 + arg2
+                        | BinaryIntOp.Sub -> arg1 - arg2
+                        | BinaryIntOp.Mul -> arg1 * arg2
+                        | BinaryIntOp.Div -> arg1 / arg2
+                        | BinaryIntOp.Less -> if arg1 < arg2 then 1 else 0
+                        | BinaryIntOp.Equal -> if arg1 = arg2 then 1 else 0
+                        | BinaryIntOp.Greater -> if arg1 > arg2 then 1 else 0
 
                     stack.Push(Value.Int result)
                 | UnaryIntOperation op ->
@@ -326,17 +327,6 @@ module ChunkedVM =
                     let result =
                         match op with
                         | UnaryIntOp.Neg -> -arg
-
-                    stack.Push(Value.Int result)
-                | IntComparison op ->
-                    let arg2 = stack.Pop() |> valueAsIntExn
-                    let arg1 = stack.Pop() |> valueAsIntExn
-
-                    let result =
-                        match op with
-                        | IntCmp.Less -> if arg1 < arg2 then 1 else 0
-                        | IntCmp.Equal -> if arg1 = arg2 then 1 else 0
-                        | IntCmp.Greater -> if arg1 > arg2 then 1 else 0
 
                     stack.Push(Value.Int result)
                 | EnvLoad name ->
@@ -405,7 +395,7 @@ module ChunkedVM =
                 Some(stack.Peek())
 
 module Ex =
-    open ChunkedVM
+    open SymbolicVM
 
     let evalPrint expr =
         let startTs = System.DateTime.Now

@@ -62,7 +62,7 @@ let y = 6"
     [<Fact>]
     let multiArgAbs () =
         checkParseSnapshot @"\a b c. b*b - 4*a*c"
-        
+
     [<Fact>]
     let absAndLet () =
         checkParseSnapshot @"let f = \x. x + 2 in f 2"
