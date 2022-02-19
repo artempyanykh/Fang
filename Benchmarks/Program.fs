@@ -10,9 +10,7 @@ type InterpreterType =
 
 type EvalBench() =
     let interpreters =
-        [ TreeInterpreter.Ex.evalExpr >> ignore
-          SymbolicBytecode.Ex.evalExpr >> ignore
-          FlatBytecode.Ex.evalExpr >> ignore ]
+        [ TreeInterpreter.Ex.evalExpr >> ignore ]
 
     [<ParamsAllValues>]
     member val public interpreterType: InterpreterType = InterpreterType.Tree with get, set

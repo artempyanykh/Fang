@@ -7,15 +7,13 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Farkle" Version="6.3.2"/>
+        <PackageReference Include="Farkle" Version="6.3.2" />
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Include="Lang.fs"/>
-        <Compile Include="Parser.fs"/>
-        <Compile Include="Example.fs"/>
-        <Compile Include="TreeInterpreter.fs"/>
-        <Compile Include="SymbolicBytecode.fs"/>
-        <Compile Include="FlatBytecode.fs"/>
+        <Compile Include="Lang.fs" />
+        <Compile Include="Parser.fs" />
+        <Compile Include="Example.fs" />
+        <Compile Include="TreeInterpreter.fs" />
     </ItemGroup>
 </Project>

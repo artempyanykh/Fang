@@ -17,9 +17,7 @@ let runExamples () =
           "badRecursiveBind", Example.AST.badRecursiveBind ]
 
     let interpreters =
-        [ "Tree-based interpreter", TreeInterpreter.Ex.evalPrint
-          "Symbolic Bytecode", SymbolicBytecode.Ex.evalPrint
-          "Flat Bytecode", FlatBytecode.Ex.evalPrint ]
+        [ "Tree-based interpreter", TreeInterpreter.Ex.evalPrint ]
 
     for exampleName, example in examples do
         printfn $"{exampleName}"
