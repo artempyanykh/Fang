@@ -1,5 +1,6 @@
 ﻿module Fang.Bytecode
 
+open System.Collections.Generic
 open Fang.Lang
 
 [<RequireQualifiedAccess>]
@@ -32,16 +33,39 @@ module IntBinaryOp =
 [<RequireQualifiedAccess>]
 type IntUnaryOp = | Neg
 
+type ConstNum = int
+
+type ConstPool() =
+    let name2num: Dictionary<string, ConstNum> = Dictionary()
+    let num2name: ResizeArray<string> = ResizeArray()
+
+    member this.Add(name: string) : ConstNum =
+        if name2num.ContainsKey(name) then
+            name2num.[name]
+        else
+            let nextNum = num2name.Count
+            num2name.Add(name)
+            name2num.Add(name, nextNum)
+            nextNum
+
+    member this.FindName(num: ConstNum) : string = num2name.[num]
+
 [<RequireQualifiedAccess>]
 type Instr =
     | Halt
     | IntConst of int
     | IntBinaryOp of IntBinaryOp
     | IntUnaryOp of IntUnaryOp
+    | EnvLoad of ConstNum
+    | EnvSave of ConstNum
+    | EnvUpdate of ConstNum
+    | EnvRestore of ConstNum
+    | Blackhole
 
 type Bytecode = array<Instr>
 
 type BytecodeBuilder() =
+    let constPool = ConstPool()
 
     let bytecodeBuffer = ResizeArray()
 
@@ -68,6 +92,25 @@ type BytecodeBuilder() =
 
             match fn with
             | Neg -> this.EmitInstr(Instr.IntUnaryOp IntUnaryOp.Neg)
+        | Var name ->
+            let nameNum = constPool.Add(name)
+            this.EmitInstr(Instr.EnvLoad nameNum)
+        | Bind (recursive, var, body, expr) ->
+            let varNum = constPool.Add(var)
+
+            if not recursive then
+                this.Generate(body)
+                this.EmitInstr(Instr.EnvSave varNum)
+                this.Generate(expr)
+                this.EmitInstr(Instr.EnvRestore varNum)
+            else
+                this.EmitInstr(Instr.Blackhole)
+                this.EmitInstr(Instr.EnvSave varNum)
+                this.Generate(body)
+                this.EmitInstr(Instr.EnvUpdate varNum)
+
+                this.Generate(expr)
+                this.EmitInstr(Instr.EnvRestore varNum)
 
 
     member this.Build() = Array.ofSeq bytecodeBuffer
@@ -85,6 +128,17 @@ module VM =
         | Int of int
         | Blackhole
 
+    type Env = Map<ConstNum, Value>
+
+    module Env =
+        let empty = Map.empty
+
+        let inline find (name: ConstNum) (env: Env) : Value =
+            try
+                Map.find name env
+            with
+            | :? KeyNotFoundException -> failwith $"Unbound name: #{name}"
+
     module Value =
         let asInt v =
             match v with
@@ -94,6 +148,9 @@ module VM =
     type VM(bc: Bytecode) =
         let stack: Stack<Value> = Stack()
         let mutable codePointer: int = 0
+
+        let mutable env: Env = Env.empty
+        let envStack: Stack<Env> = Stack()
 
         member this.Execute() =
             let mutable shouldHalt = false
@@ -128,6 +185,18 @@ module VM =
                         | IntUnaryOp.Neg -> -arg
 
                     stack.Push(Value.Int result)
+                | Instr.EnvLoad n ->
+                    let value = Env.find n env
+                    stack.Push(value)
+                | Instr.EnvSave n ->
+                    let value = stack.Pop()
+                    envStack.Push(env)
+
+                    env <- Map.add n value env
+                | Instr.EnvUpdate n ->
+                    let value = stack.Pop()
+                    env <- Map.add n value env
+                | Instr.EnvRestore _ -> env <- envStack.Pop()
 
         member this.CurrentValue() : Option<Value> =
             if stack.Count = 0 then
