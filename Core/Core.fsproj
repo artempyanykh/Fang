@@ -15,5 +15,6 @@
         <Compile Include="Parser.fs" />
         <Compile Include="Example.fs" />
         <Compile Include="TreeInterpreter.fs" />
+        <Compile Include="Bytecode.fs" />
     </ItemGroup>
 </Project>
