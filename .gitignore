@@ -6,3 +6,4 @@ Core/Parser.fs
 Core/Parser.fsi
 Core/Lexer.fs
 Fang.sln.DotSettings.user
+BenchmarkDotNet.Artifacts

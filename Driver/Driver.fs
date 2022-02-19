@@ -26,7 +26,7 @@ let runExamples () =
 
         for interpreterName, interpreter in interpreters do
             printfn $"{interpreterName}"
-            interpreter example
+            printfn $"{interpreter example}"
 
     0
 

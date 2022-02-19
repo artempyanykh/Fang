@@ -117,6 +117,8 @@ let rec eval (env: Env) (expr: Expr) : Value =
             eval env f
 
 module Ex =
+    let evalExpr = eval Env.empty
+    
     let evalPrint expr =
         let start = System.DateTime.Now
 
@@ -124,6 +126,6 @@ module Ex =
             let expr = eval Env.empty expr
             let finish = System.DateTime.Now
             let duration = finish - start
-            printfn $"[{duration.TotalMilliseconds}ms]>> {expr}"
+            $"[{duration.TotalMilliseconds}ms]>> {expr}"
         with
-        | EvalException err -> printfn $"!! {err}"
+        | EvalException err -> $"!! {err}"

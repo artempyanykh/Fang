@@ -397,6 +397,12 @@ module SymbolicVM =
 module Ex =
     open SymbolicVM
 
+    let evalExpr expr =
+        let bc = genBytecode expr
+        let vm = VM(bc)
+        vm.Execute()
+        vm.CurrentValue |> Option.get
+
     let evalPrint expr =
         let startTs = System.DateTime.Now
 
@@ -408,10 +414,11 @@ module Ex =
         try
             vm.Execute()
             let finishTs = System.DateTime.Now
-            let value = vm.CurrentValue
+            let value = vm.CurrentValue |> Option.get
 
             let bcDur = bcDoneTs - startTs
             let exeDur = finishTs - bcDoneTs
-            printfn $"[{bcDur.TotalMilliseconds}/{exeDur.TotalMilliseconds}ms]>> {value}"
+            $"[{bcDur.TotalMilliseconds}/{exeDur.TotalMilliseconds}ms]>> {value}"
         with
-        | InterpException err -> printfn $"!! {err}"
+        | InterpException err -> $"!! {err}"
+        | :? System.ArgumentException as err -> $"!! {err}"
