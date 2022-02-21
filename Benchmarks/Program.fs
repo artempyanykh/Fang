@@ -12,6 +12,7 @@ type EvalBench() =
     let interpreters =
         [ TreeInterpreter.Ex.evalExpr >> ignore
           SymbolicBytecode.Ex.evalExpr >> ignore
+          Bytecode.Ex.eval >> ignore
           FlatBytecode.Ex.evalExpr >> ignore ]
 
     [<ParamsAllValues>]
