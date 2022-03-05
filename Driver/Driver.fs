@@ -18,9 +18,7 @@ let runExamples () =
 
     let interpreters =
         [ "Tree-based interpreter", TreeInterpreter.Ex.evalPrint
-          "Symbolic Bytecode", SymbolicBytecode.Ex.evalPrint
-          "New Bytecode", Bytecode.Ex.evalPrint
-          "Flat Bytecode", FlatBytecode.Ex.evalPrint ]
+          "Bytecode interpreter", Bytecode.Ex.evalPrint ]
 
     for exampleName, example in examples do
         printfn $"{exampleName}"

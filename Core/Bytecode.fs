@@ -90,6 +90,8 @@ type LabelManager() =
 [<RequireQualifiedAccess>]
 type Instr =
     | Halt
+    | Nop
+    | Blackhole
     | IntConst of int
     | IntBinaryOp of IntBinaryOp
     | IntUnaryOp of IntUnaryOp
@@ -97,13 +99,11 @@ type Instr =
     | EnvSave of ConstNum
     | EnvUpdate of ConstNum
     | EnvRestore of ConstNum
-    | Blackhole
+    | Jump of LabelNum
+    | JumpTrue of LabelNum
     | MakeClosure of var: ConstNum * code: LabelNum
     | Apply
     | Return
-    | JumpTrue of LabelNum
-    | Jump of LabelNum
-    | Nop
 
 type Bytecode =
     { instr: array<Instr>
@@ -401,11 +401,14 @@ module VM =
                 Some(valueStack.Peek())
 
 module Ex =
-    let eval (expr: Expr) : VM.Value =
-        let bc = genBytecode expr
+    let evalBytecode (bc: Bytecode) : VM.Value =
         let vm = VM.VM(bc)
         vm.Execute()
         vm.CurrentValue() |> Option.get
+
+    let evalExpr (expr: Expr) : VM.Value =
+        let bc = genBytecode expr
+        evalBytecode bc
 
     let evalPrint expr =
         let startTs = System.DateTime.Now
