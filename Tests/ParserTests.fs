@@ -1,4 +1,4 @@
-module Fang.Tests
+namespace Fang
 
 open System
 open Snapper
@@ -57,14 +57,14 @@ let y = 6"
         checkParseSnapshot source
 
     [<Fact>]
-    let simpleAbs () = checkParseSnapshot @"\n. n"
+    let simpleLam () = checkParseSnapshot @"\n. n"
 
     [<Fact>]
-    let multiArgAbs () =
+    let multiArgLam () =
         checkParseSnapshot @"\a b c. b*b - 4*a*c"
 
     [<Fact>]
-    let absAndLet () =
+    let lamAndLet () =
         checkParseSnapshot @"let f = \x. x + 2 in f 2"
 
     [<Fact>]

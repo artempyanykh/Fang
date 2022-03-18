@@ -12,6 +12,7 @@
 
     <ItemGroup>
         <Compile Include="Lang.fs" />
+        <Compile Include="Ir.fs" />
         <Compile Include="Parser.fs" />
         <Compile Include="Example.fs" />
         <Compile Include="TreeInterpreter.fs" />

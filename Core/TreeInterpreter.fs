@@ -40,9 +40,9 @@ let evalArithmetic fn a b =
 
 let evalComparison fn l r =
     match fn with
-    | Less -> if l < r then 1 else 0
-    | Greater -> if l > r then 1 else 0
-    | Equal -> if l = r then 1 else 0
+    | Lt -> if l < r then 1 else 0
+    | Gt -> if l > r then 1 else 0
+    | Eq -> if l = r then 1 else 0
 
 let valueAsInt =
     function
@@ -67,18 +67,18 @@ let rec eval (env: Env) (expr: Expr) : Value =
         Env.lookupVar var env
         |> Option.map (checkBlackHole var)
         |> Option.defaultWith (fun () -> raise (EvalException(UnboundName var)))
-    | Abs (var, body) -> Closure { env = env; var = var; body = body }
-    | Builtin (Arithmetic (fn, a, b)) ->
+    | Lam (var, body) -> Closure { env = env; var = var; body = body }
+    | Prim (BArith (fn, a, b)) ->
         let a = eval env a |> valueAsInt
         let b = eval env b |> valueAsInt
 
         Value.Int(evalArithmetic fn a b)
-    | Builtin (UnaryArithmetic (fn, expr)) ->
+    | Prim (UArith (fn, expr)) ->
         let exprVal = eval env expr |> valueAsInt
 
         match fn with
-        | UnaryArithmeticFn.Neg -> Value.Int(-exprVal)
-    | Builtin (Comparison (fn, l, r)) ->
+        | UArithFn.Neg -> Value.Int(-exprVal)
+    | Prim (Cmp (fn, l, r)) ->
         let a = eval env l |> valueAsInt
         let b = eval env r |> valueAsInt
 

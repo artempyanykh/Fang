@@ -10,7 +10,7 @@ module internal Impl =
     let handleNeg expr =
         match expr with
         | Lit (BType.Int i) -> Lit(BType.Int(-i))
-        | _ -> Builtin(UnaryArithmetic(Neg, expr))
+        | _ -> Prim(UArith(Neg, expr))
 
     let rec mkApp expr args =
         match args with
@@ -22,12 +22,12 @@ module internal Impl =
         let core = body
 
         let unsugaredBody =
-            List.foldBack (fun n acc -> Abs(n, acc)) args core
+            List.foldBack (fun n acc -> Lam(n, acc)) args core
 
         Bind(isRec, name, unsugaredBody, expr)
 
-    let rec mkAbs names body =
-        List.foldBack (fun n acc -> Abs(n, acc)) names body
+    let rec mkLam names body =
+        List.foldBack (fun n acc -> Lam(n, acc)) names body
 
     let intNum =
         Terminals.unsignedIntRegex
@@ -49,9 +49,9 @@ module internal Impl =
 
         let expr: Nonterminal<Expr> = nonterminal "expr"
 
-        let absExpr =
-            "abstraction"
-            ||= [ !& @"\" .>>. idents .>> "." .>>. expr => mkAbs ]
+        let lamExpr =
+            "lambda abstraction"
+            ||= [ !& @"\" .>>. idents .>> "." .>>. expr => mkLam ]
 
         let condExpr =
             "cond"
@@ -81,20 +81,20 @@ module internal Impl =
         let infixExpr =
             "infix expr"
             ||= [ !@expr .>> "+" .>>. expr
-                  => (fun l r -> Builtin(Arithmetic(ArithmeticFn.Add, l, r)))
+                  => (fun l r -> Prim(BArith(BArithFn.Add, l, r)))
                   !@expr .>> "-" .>>. expr
-                  => (fun l r -> Builtin(Arithmetic(ArithmeticFn.Sub, l, r)))
+                  => (fun l r -> Prim(BArith(BArithFn.Sub, l, r)))
                   !@expr .>> "*" .>>. expr
-                  => (fun l r -> Builtin(Arithmetic(ArithmeticFn.Mul, l, r)))
+                  => (fun l r -> Prim(BArith(BArithFn.Mul, l, r)))
                   !@expr .>> "/" .>>. expr
-                  => (fun l r -> Builtin(Arithmetic(ArithmeticFn.Div, l, r)))
+                  => (fun l r -> Prim(BArith(BArithFn.Div, l, r)))
 
                   !@expr .>> "=" .>>. expr
-                  => (fun l r -> Builtin(Comparison(ComparisonFn.Equal, l, r)))
+                  => (fun l r -> Prim(Cmp(CmpFn.Eq, l, r)))
                   !@expr .>> "<" .>>. expr
-                  => (fun l r -> Builtin(Comparison(ComparisonFn.Less, l, r)))
+                  => (fun l r -> Prim(Cmp(CmpFn.Lt, l, r)))
                   !@expr .>> ">" .>>. expr
-                  => (fun l r -> Builtin(Comparison(ComparisonFn.Greater, l, r))) ]
+                  => (fun l r -> Prim(Cmp(CmpFn.Gt, l, r))) ]
 
         simpleExpr.SetProductions(
             !@intNum => (fun i -> Lit(BType.Int i)), //
@@ -104,7 +104,7 @@ module internal Impl =
 
         expr.SetProductions(
             !@simpleExpr |> asIs,
-            !@absExpr |> asIs,
+            !@lamExpr |> asIs,
             !@condExpr |> asIs,
             !@letExpr |> asIs,
             !@appExpr |> asIs,

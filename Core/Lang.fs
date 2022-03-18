@@ -10,29 +10,66 @@ type BType =
     | Int of int
     | Unit
 
-type ArithmeticFn =
+type BArithFn =
     | Add
     | Sub
     | Mul
     | Div
 
-type UnaryArithmeticFn = | Neg
+type UArithFn = | Neg
 
-type ComparisonFn =
-    | Less
-    | Equal
-    | Greater
+type CmpFn =
+    | Lt
+    | Eq
+    | Gt
 
-type BuiltinFn =
-    | Arithmetic of fn: ArithmeticFn * opA: Expr * opB: Expr
-    | UnaryArithmetic of fn: UnaryArithmeticFn * op: Expr
-    | Comparison of fn: ComparisonFn * lhs: Expr * rhs: Expr
+type PrimFn =
+    | BArith of fn: BArithFn * opA: Expr * opB: Expr
+    | UArith of fn: UArithFn * op: Expr
+    | Cmp of fn: CmpFn * lhs: Expr * rhs: Expr
 
 and Expr =
     | Lit of BType
     | Var of VarName
-    | Abs of var: VarName * body: Expr
+    | Lam of var: VarName * body: Expr
+    | Bind of isRec: bool * var: VarName * body: Expr * expr: Expr
     | App of expr: Expr * arg: Expr
     | Cond of pred: Expr * trueBranch: Expr * falseBranch: Expr
-    | Bind of recursive: bool * var: VarName * body: Expr * expr: Expr
-    | Builtin of BuiltinFn
+    | Prim of PrimFn
+
+module Expr =
+    let rec freeVars =
+        function
+        | Var name -> Set.singleton name
+        | Lam (var, body) -> Set.remove var (freeVars body)
+        | App (expr, arg) -> Set.union (freeVars expr) (freeVars arg)
+        | Bind (isRec, var, body, cont) ->
+            let bodyVars = freeVars body
+
+            let bodyVars =
+                if isRec then
+                    Set.remove var bodyVars
+                else
+                    bodyVars
+
+            let contVars = freeVars cont
+            let contVars = Set.remove var contVars
+
+            Set.union bodyVars contVars
+        | Cond (p, t, f) ->
+            Set.unionMany [ freeVars p
+                            freeVars t
+                            freeVars f ]
+        | Prim (BArith (_, opA, opB)) -> Set.union (freeVars opA) (freeVars opB)
+        | Prim (UArith (_, opA)) -> freeVars opA
+        | Prim (Cmp (_, lhs, rhs)) -> Set.union (freeVars lhs) (freeVars rhs)
+        | _ -> Set.empty
+
+    let collapseLambdas (expr: Expr) : List<VarName> * Expr =
+        let rec go acc =
+            function
+            | Lam (var, body) -> go (var :: acc) body
+            | other -> (acc, other)
+
+        let varsRev, body = go [] expr
+        List.rev varsRev, body

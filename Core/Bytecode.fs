@@ -16,18 +16,18 @@ type IntBinaryOp =
     | Greater
 
 module IntBinaryOp =
-    let fromArithmeticFn (fn: ArithmeticFn) =
+    let fromArithmeticFn (fn: BArithFn) =
         match fn with
         | Add -> IntBinaryOp.Add
         | Sub -> IntBinaryOp.Sub
         | Mul -> IntBinaryOp.Mul
         | Div -> IntBinaryOp.Div
 
-    let fromComparisonFn (fn: ComparisonFn) =
+    let fromComparisonFn (fn: CmpFn) =
         match fn with
-        | Less -> IntBinaryOp.Less
-        | Equal -> IntBinaryOp.Equal
-        | Greater -> IntBinaryOp.Greater
+        | Lt -> IntBinaryOp.Less
+        | Eq -> IntBinaryOp.Equal
+        | Gt -> IntBinaryOp.Greater
 
 
 [<RequireQualifiedAccess>]
@@ -128,19 +128,19 @@ type BytecodeBuilder() =
         match expr with
         | Lit (BType.Int i) -> this.EmitInstr(chunk, Instr.IntConst i)
         | Lit BType.Unit -> this.EmitInstr(chunk, Instr.IntConst 0)
-        | Builtin (BuiltinFn.Arithmetic (fn, opA, opB)) ->
+        | Prim (PrimFn.BArith (fn, opA, opB)) ->
             this.Generate(chunk, opA) // stack: valueA
             this.Generate(chunk, opB) // stack: valueA valueB
 
             let opType = IntBinaryOp.fromArithmeticFn fn
             this.EmitInstr(chunk, Instr.IntBinaryOp opType)
-        | Builtin (BuiltinFn.Comparison (fn, lhs, rhs)) ->
+        | Prim (PrimFn.Cmp (fn, lhs, rhs)) ->
             this.Generate(chunk, lhs) // stack: valueL
             this.Generate(chunk, rhs) // stack: valueL valueR
 
             let opType = IntBinaryOp.fromComparisonFn fn
             this.EmitInstr(chunk, Instr.IntBinaryOp opType)
-        | Builtin (BuiltinFn.UnaryArithmetic (fn, expr)) ->
+        | Prim (PrimFn.UArith (fn, expr)) ->
             this.Generate(chunk, expr)
 
             match fn with
@@ -164,7 +164,7 @@ type BytecodeBuilder() =
 
                 this.Generate(chunk, expr)
                 this.EmitInstr(chunk, Instr.EnvRestore varNum)
-        | Abs (var, body) ->
+        | Lam (var, body) ->
             // let a = 7 in
             // let x = 5 in
             // let f = (\x. x + a) in
