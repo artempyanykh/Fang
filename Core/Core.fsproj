@@ -17,6 +17,7 @@
         <Compile Include="Example.fs" />
         <Compile Include="TreeInterpreter.fs" />
         <Compile Include="Bytecode.fs" />
+        <Compile Include="Bytecode2.fs" />
         <Compile Include="BytecodeSerde.fs" />
     </ItemGroup>
 </Project>
